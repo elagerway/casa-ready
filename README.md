@@ -2,7 +2,7 @@
 
 > An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying $15K–$40K to consulting firms.
 
-**Status:** pre-V1, in active development. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V1 (`v0.1.0`) — first usable release. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
@@ -96,6 +96,20 @@ Each scan writes to `scan-output/<env>/<timestamp>/`:
 
 - Node 20 or later
 - Docker (the official `zaproxy/zap-stable` image is pulled on first run)
+
+### Running the integration smoke test
+
+The unit suite (`npm test`) skips the end-to-end smoke test by default. To exercise the full pipeline against a real ZAP container hitting [OWASP Juice Shop](https://github.com/bkimminich/juice-shop):
+
+```bash
+# Terminal 1 — start juice-shop locally
+docker run --rm -p 3000:3000 bkimminich/juice-shop
+
+# Terminal 2 — run the smoke test
+RUN_INTEGRATION=1 npm run test:integration
+```
+
+First run pulls the ~900 MB `zaproxy/zap-stable` image; allow up to 10 minutes. Subsequent runs are faster. Successful smoke produces `scan-output/staging/<timestamp>/` containing `results.json`, `results.txt`, `results.xml`, `results.html`, and `summary.md`.
 
 ### Known V1 limitations
 
