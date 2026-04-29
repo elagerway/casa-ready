@@ -1,0 +1,15 @@
+node_modules/
+.DS_Store
+.env
+.env.local
+*.log
+dist/
+coverage/
+.vscode/
+.idea/
+
+# CASA scan artifacts (often contain target URLs / auth)
+scan-output/
+*.zap.json
+*.zap.xml
+results-full.xml

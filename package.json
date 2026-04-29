@@ -1,0 +1,29 @@
+{
+  "name": "casa-ready",
+  "version": "0.0.1",
+  "description": "Open-source toolkit to pass Google CASA Tier 2 security assessments without consulting-firm costs.",
+  "type": "module",
+  "bin": {
+    "casa-ready": "./bin/casa-ready.js"
+  },
+  "scripts": {
+    "test": "echo \"V1 in progress\" && exit 0"
+  },
+  "keywords": [
+    "casa",
+    "google-oauth",
+    "gmail-api",
+    "owasp-zap",
+    "compliance",
+    "security",
+    "app-defense-alliance"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elagerway/casa-ready"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
