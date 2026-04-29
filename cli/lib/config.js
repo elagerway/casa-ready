@@ -12,9 +12,16 @@ export async function loadConfig(configPath) {
   try {
     // Import via a data: URL so that Vite/Vitest's module resolver never sees
     // a file-system path that contains encoded characters (e.g. %20 for spaces).
+    // Trade-off: the user's config file cannot use relative imports
+    // (`import x from './helper.js'`) — data: URLs have no base for resolution.
     const dataUrl = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(source);
     mod = await import(/* @vite-ignore */ dataUrl);
   } catch (err) {
+    if (/Invalid relative URL|base scheme is not hierarchical/i.test(err.message)) {
+      throw new Error(
+        `Could not load config at ${configPath}: relative imports are not supported in config files. Inline the imported values directly.`
+      );
+    }
     throw new Error(`Could not load config at ${configPath}: ${err.message}`);
   }
 
@@ -30,8 +37,17 @@ function validateConfig(config) {
   if (!config.app || typeof config.app !== 'string') {
     throw new Error('Config: "app" must be a non-empty string');
   }
-  if (!config.envs || typeof config.envs !== 'object') {
+  if (
+    !config.envs ||
+    typeof config.envs !== 'object' ||
+    Array.isArray(config.envs)
+  ) {
     throw new Error('Config: "envs" must be an object mapping env names to URLs');
+  }
+  for (const [name, url] of Object.entries(config.envs)) {
+    if (typeof url !== 'string' || url.length === 0) {
+      throw new Error(`Config: "envs.${name}" must be a non-empty URL string`);
+    }
   }
   if (!config.auth || typeof config.auth !== 'object') {
     throw new Error('Config: "auth" must be an object');

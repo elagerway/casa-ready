@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { loadConfig, resolveEnv, readAuthCredentials } from '../../cli/lib/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,11 +23,55 @@ describe('loadConfig', () => {
   it('throws when required fields are missing', async () => {
     const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
     const tmpPath = path.join(tmpDir, 'bad-config.js');
-    const { mkdir, writeFile, rm } = await import('node:fs/promises');
     await mkdir(tmpDir, { recursive: true });
     await writeFile(tmpPath, 'export default { app: "x" };');
     try {
       await expect(loadConfig(tmpPath)).rejects.toThrow(/envs/);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when envs is an array (not an object map)', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
+    const tmpPath = path.join(tmpDir, 'envs-as-array.js');
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(
+      tmpPath,
+      `export default { app: "x", envs: ["staging"], auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } };`
+    );
+    try {
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/envs.*object mapping/i);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when an env value is not a string', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
+    const tmpPath = path.join(tmpDir, 'envs-bad-value.js');
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(
+      tmpPath,
+      `export default { app: "x", envs: { staging: null }, auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } };`
+    );
+    try {
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/envs\.staging.*non-empty URL string/i);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws a clear error when the config uses a relative import', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
+    const tmpPath = path.join(tmpDir, 'relative-import.js');
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(
+      tmpPath,
+      `import x from './nonexistent.js'; export default { app: "x", envs: {}, auth: {} };`
+    );
+    try {
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/relative imports are not supported/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
