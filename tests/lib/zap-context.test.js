@@ -54,10 +54,30 @@ describe('renderContext', () => {
     expect(result).toBe('<password>&lt;script&gt;&amp;&quot;&apos;</password>');
   });
 
-  it('does not double-escape already-encoded entities', () => {
+  it('encodes a literal ampersand exactly once', () => {
     const template = `<password>{{password}}</password>`;
-    // Plain string with literal ampersand — should be encoded once
     const result = renderContext(template, { password: 'a&b' });
     expect(result).toBe('<password>a&amp;b</password>');
+  });
+
+  it('treats values as raw — pre-escaped values get double-encoded', () => {
+    // Documents the contract: callers must pass raw values, never pre-escaped.
+    // If you pass `&amp;` you get `&amp;amp;`. Task 6 (orchestrator) must not pre-escape.
+    const template = `<password>{{password}}</password>`;
+    const result = renderContext(template, { password: '&amp;' });
+    expect(result).toBe('<password>&amp;amp;</password>');
+  });
+
+  it('does not re-substitute when a value contains placeholder syntax', () => {
+    // String.prototype.replace does not re-scan its own replacements.
+    // A value containing literal `{{...}}` text is safe — it will not trigger
+    // another substitution pass, even for an otherwise-known key.
+    const template = `<password>{{password}}</password>`;
+    const result = renderContext(template, {
+      password: '{{password}}',
+    });
+    // The literal `{{password}}` text gets XML-escaped (the braces have no
+    // special XML meaning, so they pass through) and is NOT re-substituted.
+    expect(result).toBe('<password>{{password}}</password>');
   });
 });
