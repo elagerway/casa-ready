@@ -65,4 +65,14 @@ describe('supabase-jwt auth getContext', () => {
     expect(result.contextXml).toContain('a&amp;b');
     expect(result.contextXml).toContain('&lt;x&gt;&quot;&apos;');
   });
+
+  it('throws an actionable error when loginUrl does not contain /auth/v1', async () => {
+    const targetBadUrl = {
+      ...target,
+      auth: { ...target.auth, loginUrl: 'https://x.supabase.co/login' },
+    };
+    await expect(
+      getContext({ target: targetBadUrl, credentials, configsDir, runId: 'r1' })
+    ).rejects.toThrow(/loginUrl must contain.*\/auth\/v1.*https:\/\/x\.supabase\.co\/login/);
+  });
 });

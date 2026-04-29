@@ -51,7 +51,6 @@ function authenticate(helper, paramsValues, credentials) {
   // Store the token in ZAP's session for subsequent requests.
   // The context's <session><httpauthsessionwrapper> picks this up via the
   // {%token%} template in the Authorization header.
-  msg.getRequestingUser().getAuthenticationCredentials();
   helper.getCorrespondingHttpState().setAttribute('token', parsed.access_token);
 
   return msg;
