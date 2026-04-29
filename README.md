@@ -113,6 +113,7 @@ First run pulls the ~900 MB `zaproxy/zap-stable` image; allow up to 10 minutes. 
 
 ### Known V1 limitations
 
+- **Scan policy is a permissive fallback, not the official ADA-tuned policy.** The App Defense Alliance distributes its CASA-tuned ZAP policy via the [Tier 2 tooling matrix](https://appdefensealliance.dev/casa/tier-2/tooling-matrix), not in their public GitHub repo. V1 ships with a `MEDIUM`/`HIGH` OWASP Top 10 fallback in `configs/zap/casa-tier2.policy`. Replacing it with the official policy is the first V1.1 improvement (see `configs/zap/README.md`).
 - **Form-based auth only.** ZAP's form-auth (type=2) is the only auth path supported in V1. JSON-body login endpoints (e.g. Supabase Auth's `POST /auth/v1/token`) need ZAP's script-based auth (type=4) — tracked as a follow-up.
 - **Single `loginUrl` for all envs.** Both staging and prod scans use the one `auth.loginUrl` from your config. If your prod login URL differs, edit the config before scanning prod.
 - **Single origin.** V1 scans the primary URL you point it at. Multi-origin (e.g. SPA + separate API host) is V1.1.

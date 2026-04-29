@@ -131,6 +131,32 @@ describe('runScan', () => {
     expect(deps.deleteContext).toHaveBeenCalledWith('/tmp/casa-ctx-test.xml');
   });
 
+  it('default mkdirOutput resolves under process.cwd(), not the install dir', async () => {
+    // Regression test for the v0.1.0 final-review critical:
+    // PROJECT_ROOT (= install location) is wrong for global installs and
+    // for node_modules-installed devDeps; only cwd is reliable.
+    let capturedDir = null;
+    const deps = makeDeps({
+      mkdirOutput: undefined, // force the production default
+    });
+    // Spy on the real mkdir behavior by hooking deeper: we can't easily
+    // intercept the default mkdirOutput closure, so we run runScan with
+    // a doomed runZap that rejects right after mkdirOutput is called,
+    // then read the directory path from the (still-mocked) deleteContext call
+    // — actually simpler: assert via the result.outputDir on a successful run.
+    deps.mkdirOutput = undefined;
+    deps.runZap = vi.fn().mockResolvedValue({ exitCode: 0 });
+    const result = await runScan(
+      { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
+      deps
+    );
+    expect(result.outputDir.startsWith(process.cwd())).toBe(true);
+    expect(result.outputDir).toContain('scan-output/staging/');
+    // Cleanup: the test created a real timestamped directory under cwd
+    const { rm } = await import('node:fs/promises');
+    await rm(path.join(process.cwd(), 'scan-output'), { recursive: true, force: true });
+  });
+
   it('surfaces a useful error when readResultsJson fails (e.g. ZAP crashed)', async () => {
     const deps = makeDeps({
       readResultsJson: vi.fn().mockRejectedValue(

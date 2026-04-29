@@ -53,7 +53,12 @@ export async function runScan(opts, deps = {}) {
     deleteContext = (p) => unlink(p).catch(() => {}),
     readContextTemplate = () => readFile(CONTEXT_TEMPLATE_PATH, 'utf8'),
     mkdirOutput = async (envName, ts) => {
-      const dir = path.join(PROJECT_ROOT, 'scan-output', envName, ts);
+      // Use the user's CWD, NOT the install dir. Global installs land
+      // PROJECT_ROOT in npm's global modules dir (often non-writable);
+      // local devDeps land in node_modules/casa-ready/ (gets clobbered on
+      // npm ci). Only cwd is reliable across install methods + matches
+      // where users (and the GHA artifact upload) expect to find scan-output/.
+      const dir = path.join(process.cwd(), 'scan-output', envName, ts);
       await mkdir(dir, { recursive: true });
       return dir;
     },
