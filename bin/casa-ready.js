@@ -9,6 +9,7 @@ Usage:
 
 Options:
   --env <staging|prod>     Which environment to scan (default: staging)
+  --target <name>          Scan only the named target (default: all targets in env)
   --confirm-prod           Required when --env=prod (active scan can be destructive)
   --scan <casa|baseline>   Scan flavor (default: casa)
   --config <path>          Path to casa-ready.config.js (default: ./casa-ready.config.js)
@@ -19,9 +20,10 @@ Environment variables:
   CASA_READY_PASS          Login password for the form-auth context (required)
 
 Examples:
-  casa-ready scan
-  casa-ready scan --env prod --confirm-prod
-  casa-ready scan --scan baseline
+  casa-ready scan                               # all targets in staging
+  casa-ready scan --target spa                  # only the 'spa' target
+  casa-ready scan --env prod --confirm-prod     # all targets in prod
+  casa-ready scan --scan baseline               # passive scan only (faster)
 `;
 
 async function main(argv) {
@@ -42,6 +44,7 @@ async function main(argv) {
       args: argv.slice(1),
       options: {
         env: { type: 'string', default: 'staging' },
+        target: { type: 'string' },
         'confirm-prod': { type: 'boolean', default: false },
         scan: { type: 'string', default: 'casa' },
         config: { type: 'string' },
@@ -63,6 +66,7 @@ async function main(argv) {
     const result = await runScan({
       configPath: parsed.values.config,
       env: parsed.values.env,
+      target: parsed.values.target,
       confirmProd: parsed.values['confirm-prod'],
       flavor: parsed.values.scan,
     });
