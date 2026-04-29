@@ -49,6 +49,50 @@ casa-ready/
     └── playbook.md            ← TAC submission walkthrough (coming)
 ```
 
+## Using `casa-ready scan`
+
+### Quick start
+
+```bash
+# Install
+npm install -g casa-ready          # or use npx (no install)
+
+# Configure
+cp node_modules/casa-ready/casa-ready.config.example.js casa-ready.config.js
+# Edit casa-ready.config.js: set your app URLs and login form details
+
+# Set creds (never put these in the config file)
+export CASA_READY_USER=your-test-user@example.com
+export CASA_READY_PASS=your-test-password
+
+# Scan staging (default)
+casa-ready scan
+
+# Scan prod (requires explicit confirmation)
+casa-ready scan --env prod --confirm-prod
+```
+
+### Output
+
+Each scan writes to `scan-output/<env>/<timestamp>/`:
+
+- `results.txt` — text artifact for TAC portal upload
+- `results.xml` — ZAP machine-readable output
+- `results.html` — human-readable ZAP report
+- `results.json` — raw findings (JSON)
+- `summary.md` — CASA Ready triage summary, grouped by severity, with "likely NA" hints
+
+### Requirements
+
+- Node 20 or later
+- Docker (the official `zaproxy/zap-stable` image is pulled on first run)
+
+### Known V1 limitations
+
+- **Form-based auth only.** ZAP's form-auth (type=2) is the only auth path supported in V1. JSON-body login endpoints (e.g. Supabase Auth's `POST /auth/v1/token`) need ZAP's script-based auth (type=4) — tracked as a follow-up.
+- **Single origin.** V1 scans the primary URL you point it at. Multi-origin (e.g. SPA + separate API host) is V1.1.
+- **Anonymous + authenticated coverage.** ZAP only walks the surfaces it can reach with the supplied credentials. OAuth-gated pages (e.g. Gmail-restricted user paths) require V2's authenticated-flow scanning.
+
 ## Status & roadmap
 
 V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockstep with that submission so every feature is grounded in a real pain point we hit.
