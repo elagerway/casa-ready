@@ -2,16 +2,18 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
-import { loadConfig, resolveEnv, readAuthCredentials } from '../../cli/lib/config.js';
+import { loadConfig, resolveTargets, readAuthCredentials } from '../../cli/lib/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturePath = path.join(__dirname, '..', 'fixtures', 'sample-config.js');
+const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.js');
 
 describe('loadConfig', () => {
-  it('loads a valid config file', async () => {
+  it('loads a valid multi-target config file', async () => {
     const config = await loadConfig(fixturePath);
     expect(config.app).toBe('magpipe');
-    expect(config.envs.staging).toMatch(/^https:\/\//);
+    expect(config.envs.staging.targets).toHaveLength(2);
+    expect(config.envs.staging.targets[0].name).toBe('spa');
+    expect(config.envs.staging.targets[1].name).toBe('api');
   });
 
   it('throws a clear error when the file does not exist', async () => {
@@ -20,80 +22,116 @@ describe('loadConfig', () => {
     );
   });
 
-  it('throws when required fields are missing', async () => {
+  it('throws when envs[env].targets is missing', async () => {
     const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'bad-config.js');
+    const tmpPath = path.join(tmpDir, 'no-targets.js');
     await mkdir(tmpDir, { recursive: true });
-    await writeFile(tmpPath, 'export default { app: "x" };');
+    await writeFile(
+      tmpPath,
+      `export default { app: "x", envs: { staging: {} } };`
+    );
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/envs/);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/targets.*non-empty array/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws when envs is an array (not an object map)', async () => {
+  it('throws when two targets in the same env share a name', async () => {
     const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'envs-as-array.js');
+    const tmpPath = path.join(tmpDir, 'dup-target.js');
     await mkdir(tmpDir, { recursive: true });
     await writeFile(
       tmpPath,
-      `export default { app: "x", envs: ["staging"], auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } };`
+      `export default { app: "x", envs: { staging: { targets: [
+        { name: "a", url: "https://x", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } },
+        { name: "a", url: "https://y", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } }
+      ] } } };`
     );
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/envs.*object mapping/i);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/duplicate target name/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws when an env value is not a string', async () => {
+  it('throws when auth.type is unknown', async () => {
     const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'envs-bad-value.js');
+    const tmpPath = path.join(tmpDir, 'bad-auth.js');
     await mkdir(tmpDir, { recursive: true });
     await writeFile(
       tmpPath,
-      `export default { app: "x", envs: { staging: null }, auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } };`
+      `export default { app: "x", envs: { staging: { targets: [
+        { name: "a", url: "https://x", auth: { type: "bogus" } }
+      ] } } };`
     );
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/envs\.staging.*non-empty URL string/i);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/unknown auth\.type.*bogus.*form.*supabase-jwt/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws a clear error when the config uses a relative import', async () => {
+  it('throws when supabase-jwt auth is missing apiKey', async () => {
     const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'relative-import.js');
+    const tmpPath = path.join(tmpDir, 'no-apikey.js');
     await mkdir(tmpDir, { recursive: true });
     await writeFile(
       tmpPath,
-      `import x from './nonexistent.js'; export default { app: "x", envs: {}, auth: {} };`
+      `export default { app: "x", envs: { staging: { targets: [
+        { name: "a", url: "https://x", auth: { type: "supabase-jwt", loginUrl: "https://y" } }
+      ] } } };`
     );
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/relative imports are not supported/i);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/auth\.apiKey/i);
+    } finally {
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when target.url is not http(s)', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
+    const tmpPath = path.join(tmpDir, 'bad-url.js');
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(
+      tmpPath,
+      `export default { app: "x", envs: { staging: { targets: [
+        { name: "a", url: "ftp://x", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } }
+      ] } } };`
+    );
+    try {
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/url.*http/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 });
 
-describe('resolveEnv', () => {
-  it('resolves staging to the staging URL', async () => {
+describe('resolveTargets', () => {
+  it('returns all targets for a known env', async () => {
     const config = await loadConfig(fixturePath);
-    expect(resolveEnv(config, 'staging')).toBe(
-      'https://magpipe-staging-snapsonic.vercel.app'
-    );
-  });
-
-  it('resolves prod to the prod URL', async () => {
-    const config = await loadConfig(fixturePath);
-    expect(resolveEnv(config, 'prod')).toBe('https://magpipe.ai');
+    const targets = resolveTargets(config, 'staging');
+    expect(targets).toHaveLength(2);
+    expect(targets.map((t) => t.name)).toEqual(['spa', 'api']);
   });
 
   it('throws on unknown env', async () => {
     const config = await loadConfig(fixturePath);
-    expect(() => resolveEnv(config, 'qa')).toThrow(/unknown env: qa/i);
+    expect(() => resolveTargets(config, 'qa')).toThrow(/unknown env: qa/i);
+  });
+
+  it('filters by target name when provided', async () => {
+    const config = await loadConfig(fixturePath);
+    const targets = resolveTargets(config, 'staging', 'spa');
+    expect(targets).toHaveLength(1);
+    expect(targets[0].name).toBe('spa');
+  });
+
+  it('throws when filter target name does not exist', async () => {
+    const config = await loadConfig(fixturePath);
+    expect(() => resolveTargets(config, 'staging', 'nope')).toThrow(
+      /target.*nope.*not found.*spa.*api/i
+    );
   });
 });
 
