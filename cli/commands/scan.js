@@ -69,6 +69,9 @@ export async function runScan(opts, deps = {}) {
   const targetResults = []; // { name, outputDir, summaryMd } | (failure entry below)
   const failures = []; // { name, outputDir, error, stage }
 
+  // Sequential by design — ZAP is CPU/memory intensive; running multiple
+  // containers in parallel saturates Docker Desktop quickly. Parallelism
+  // is a V1.2+ concern with explicit resource budgeting.
   for (const target of targets) {
     const result = await runOneTarget({
       target,
@@ -131,9 +134,14 @@ async function runOneTarget({
 }) {
   const runId = `${target.name}-${Date.now()}`;
   let contextPath = null;
-  const outputDir = await mkdirOutput(env, timestamp, target.name);
+  let outputDir;
 
   try {
+    // Inside the try so an mkdirOutput failure (e.g. disk full, permission
+    // denied on this target's subdir) gets collected into the failures list
+    // instead of aborting the whole run — preserves best-effort semantics.
+    outputDir = await mkdirOutput(env, timestamp, target.name);
+
     const { contextXml, scriptPath } = await getAuthContext({
       target,
       credentials,
@@ -175,11 +183,15 @@ async function runOneTarget({
 }
 
 function detectStage(error) {
-  // Best-effort stage classification from error message — for the failure summary
+  // Best-effort stage classification from error message — for the failure summary.
+  // Known gaps: errors with novel wording fall through to 'unknown'. Matching is
+  // string-based by design (Errors don't carry typed stages); accept some misses.
   const msg = String(error?.message || '');
   if (/exited with code|killed by signal|Docker is not installed/.test(msg)) return 'runZap';
   if (/Could not read ZAP results|not valid JSON/.test(msg)) return 'readResults';
   if (/Could not load config/.test(msg)) return 'loadConfig';
-  if (/auth\./.test(msg)) return 'getAuthContext';
+  if (/auth\.|supabase-jwt|form-context-template|context-template/.test(msg))
+    return 'getAuthContext';
+  if (/ENOENT|EACCES|EROFS|ENOSPC/.test(msg)) return 'mkdirOutput';
   return 'unknown';
 }

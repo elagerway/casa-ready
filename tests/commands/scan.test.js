@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { rm } from 'node:fs/promises';
 import { runScan } from '../../cli/commands/scan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,6 +41,17 @@ describe('runScan (multi-target)', () => {
     else process.env.CASA_READY_USER = originalUser;
     if (originalPass === undefined) delete process.env.CASA_READY_PASS;
     else process.env.CASA_READY_PASS = originalPass;
+  });
+
+  // Even tests that mock `mkdirOutput` still trigger the top-level `mkdir`
+  // for the env+timestamp aggregate dir (it's not dep-injected). Clean up
+  // after every test so leaked dirs don't accumulate or create order
+  // dependencies between tests.
+  afterAll(async () => {
+    await rm(path.join(process.cwd(), 'scan-output'), {
+      recursive: true,
+      force: true,
+    });
   });
 
   it('runs all targets in the env when --target is not provided', async () => {
