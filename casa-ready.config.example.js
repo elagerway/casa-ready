@@ -22,6 +22,10 @@ export default {
 
   auth: {
     type: 'form',
+    // V1 limitation: a single loginUrl is used for both --env staging and
+    // --env prod scans. If your prod login URL differs from staging, change
+    // this BEFORE running --env prod --confirm-prod (otherwise ZAP will try
+    // to authenticate against staging while scanning prod).
     loginUrl: 'https://staging.your-app.com/login',
     // ZAP's form-auth body. {%username%} / {%password%} are ZAP's substitution
     // tokens (NOT mustache; ZAP itself replaces these at scan time).

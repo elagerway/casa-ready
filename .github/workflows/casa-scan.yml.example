@@ -3,17 +3,27 @@
 # Copy this file to `.github/workflows/casa-scan.yml` (no `.example`) to enable
 # scheduled CASA scans. Recommended for the annual recert use case.
 #
-# REQUIRES the following GitHub Actions secrets:
-#   CASA_READY_USER  — login username for your staging environment
-#   CASA_READY_PASS  — login password for your staging environment
+# REQUIRES:
+#   - casa-ready as a devDependency in your package.json
+#       npm install --save-dev casa-ready
+#       git add package.json package-lock.json && git commit
+#     (npm ci below requires a committed lockfile.)
+#
+#   - These GitHub Actions secrets:
+#       CASA_READY_USER  — login username for your staging environment
+#       CASA_READY_PASS  — login password for your staging environment
 
 name: CASA Tier 2 Pre-Scan
 
 on:
   workflow_dispatch:
   schedule:
-    # 11 months after first run — gives buffer before annual recert deadline
-    - cron: '0 9 1 */11 *'
+    # Fires once a year on the 1st of the chosen month at 09:00 UTC.
+    # Adjust the month number (currently 2 = February) to roughly 1 month
+    # before your CASA recert deadline.
+    # ("Every 11 months" is not expressible in standard cron — */11 fires
+    # twice a year (Jan and Dec), which is a footgun.)
+    - cron: '0 9 1 2 *'
 
 jobs:
   scan:

@@ -21,7 +21,7 @@ CASA Ready closes those gaps so an indie dev can get to a Letter of Validation i
 
 | Component | What it does |
 |---|---|
-| `casa-ready scan <url>` | Runs OWASP ZAP in Docker against your deployed app with the CASA-mapped CWE policy preloaded; emits the `.txt` artifacts the portal accepts |
+| `casa-ready scan` | Runs OWASP ZAP in Docker against your deployed app with the CASA-mapped CWE policy preloaded; emits the `.txt` artifacts the portal accepts. Target URL comes from `casa-ready.config.js`. |
 | `casa-ready saq` | SAQ Copilot — drafts answers to the 50+ Self-Assessment Questionnaire items from your repo + cloud config, with the "cloud provider handles that" / NA patterns built in |
 | `casa-ready precheck` | Top-20 CWE pre-fix snippets (security headers, HSTS, CSP, secure cookies, CORS lockdown) for common stacks — get scan-clean before you ever pay TAC |
 | `docs/playbook.md` | The missing TAC dashboard manual, step-by-step |
@@ -54,21 +54,31 @@ casa-ready/
 ### Quick start
 
 ```bash
-# Install
-npm install -g casa-ready          # or use npx (no install)
+# 1. Install (pick one)
+npm install -g casa-ready                              # global install
+# OR
+npm install --save-dev casa-ready                      # local dev dep (recommended for CI)
+# OR run via npx (no install — slower per invocation, always latest)
 
-# Configure
+# 2. Get the example config
+#    Global install:
+cp $(npm root -g)/casa-ready/casa-ready.config.example.js casa-ready.config.js
+#    Local dev dep:
 cp node_modules/casa-ready/casa-ready.config.example.js casa-ready.config.js
-# Edit casa-ready.config.js: set your app URLs and login form details
+#    npx (no install) — download directly:
+curl -O https://raw.githubusercontent.com/elagerway/casa-ready/main/casa-ready.config.example.js
+mv casa-ready.config.example.js casa-ready.config.js
 
-# Set creds (never put these in the config file)
+# 3. Edit casa-ready.config.js: set your app URLs and login form details
+
+# 4. Set creds (never put these in the config file)
 export CASA_READY_USER=your-test-user@example.com
 export CASA_READY_PASS=your-test-password
 
-# Scan staging (default)
-casa-ready scan
+# 5. Scan staging (default)
+casa-ready scan          # or: npx casa-ready scan
 
-# Scan prod (requires explicit confirmation)
+# 6. Scan prod (requires explicit confirmation)
 casa-ready scan --env prod --confirm-prod
 ```
 
@@ -90,6 +100,7 @@ Each scan writes to `scan-output/<env>/<timestamp>/`:
 ### Known V1 limitations
 
 - **Form-based auth only.** ZAP's form-auth (type=2) is the only auth path supported in V1. JSON-body login endpoints (e.g. Supabase Auth's `POST /auth/v1/token`) need ZAP's script-based auth (type=4) — tracked as a follow-up.
+- **Single `loginUrl` for all envs.** Both staging and prod scans use the one `auth.loginUrl` from your config. If your prod login URL differs, edit the config before scanning prod.
 - **Single origin.** V1 scans the primary URL you point it at. Multi-origin (e.g. SPA + separate API host) is V1.1.
 - **Anonymous + authenticated coverage.** ZAP only walks the surfaces it can reach with the supplied credentials. OAuth-gated pages (e.g. Gmail-restricted user paths) require V2's authenticated-flow scanning.
 
@@ -101,7 +112,7 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 
 | Version | Scope | Triggered by |
 |---|---|---|
-| **V1** (in design) | `casa-ready scan <url>` — anonymous OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
+| **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
 | **V1.1** | Adds Supabase / API endpoints as a second scan target with API-tuned config | V1 ships clean + we have an endpoint manifest |
 | **V2** | Authenticated scan: ZAP context with session replay + OAuth flows | V1.1 ships + TAC findings reveal coverage gaps anonymous scans can't catch |
 | later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
