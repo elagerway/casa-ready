@@ -2,20 +2,21 @@ import path from 'node:path';
 import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { loadConfig, resolveEnv, readAuthCredentials } from '../lib/config.js';
-import { renderContext } from '../lib/zap-context.js';
+import { loadConfig, resolveTargets, readAuthCredentials } from '../lib/config.js';
+import { getContext as defaultGetAuthContext } from '../lib/auth/index.js';
 import { buildZapArgs, runZap as defaultRunZap } from '../lib/docker.js';
 import { summarize } from '../lib/summarize.js';
+import { aggregateTargets } from '../lib/targets-summary.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const CONFIGS_DIR = path.join(PROJECT_ROOT, 'configs', 'zap');
-const CONTEXT_TEMPLATE_PATH = path.join(CONFIGS_DIR, 'context-template.xml');
 
 export async function runScan(opts, deps = {}) {
   const {
     configPath = path.join(process.cwd(), 'casa-ready.config.js'),
     env = 'staging',
+    target: targetFilter,
     confirmProd = false,
     flavor = 'casa',
   } = opts;
@@ -45,20 +46,15 @@ export async function runScan(opts, deps = {}) {
       }
     },
     writeSummary = (p, content) => writeFile(p, content, 'utf8'),
-    writeContext = async (rendered) => {
-      const tmpPath = path.join(tmpdir(), `casa-ctx-${Date.now()}.xml`);
+    writeContext = async (rendered, runId) => {
+      const tmpPath = path.join(tmpdir(), `casa-ctx-${runId}.xml`);
       await writeFile(tmpPath, rendered, 'utf8');
       return tmpPath;
     },
     deleteContext = (p) => unlink(p).catch(() => {}),
-    readContextTemplate = () => readFile(CONTEXT_TEMPLATE_PATH, 'utf8'),
-    mkdirOutput = async (envName, ts) => {
-      // Use the user's CWD, NOT the install dir. Global installs land
-      // PROJECT_ROOT in npm's global modules dir (often non-writable);
-      // local devDeps land in node_modules/casa-ready/ (gets clobbered on
-      // npm ci). Only cwd is reliable across install methods + matches
-      // where users (and the GHA artifact upload) expect to find scan-output/.
-      const dir = path.join(process.cwd(), 'scan-output', envName, ts);
+    getAuthContext = defaultGetAuthContext,
+    mkdirOutput = async (envName, ts, targetName) => {
+      const dir = path.join(process.cwd(), 'scan-output', envName, ts, targetName);
       await mkdir(dir, { recursive: true });
       return dir;
     },
@@ -66,52 +62,124 @@ export async function runScan(opts, deps = {}) {
   } = deps;
 
   const config = await loadConfig(configPath);
-  const targetUrl = resolveEnv(config, env);
-  const creds = readAuthCredentials();
+  const targets = resolveTargets(config, env, targetFilter);
+  const credentials = readAuthCredentials();
   const timestamp = now();
-  const outputDir = await mkdirOutput(env, timestamp);
 
-  const template = await readContextTemplate();
-  const rendered = renderContext(template, {
-    contextName: `${config.app}-${env}`,
-    targetUrl,
-    loginUrl: config.auth.loginUrl,
-    loginRequestBody: config.auth.loginRequestBody,
-    usernameField: config.auth.usernameField,
-    passwordField: config.auth.passwordField,
-    loggedInIndicator: config.auth.loggedInIndicator,
-    username: creds.username,
-    password: creds.password,
+  const targetResults = []; // { name, outputDir, summaryMd } | (failure entry below)
+  const failures = []; // { name, outputDir, error, stage }
+
+  for (const target of targets) {
+    const result = await runOneTarget({
+      target,
+      env,
+      timestamp,
+      credentials,
+      runZap,
+      readResultsJson,
+      writeSummary,
+      writeContext,
+      deleteContext,
+      getAuthContext,
+      mkdirOutput,
+      flavor,
+    });
+    if (result.error) {
+      failures.push(result);
+      targetResults.push({ name: target.name, outputDir: result.outputDir, summaryMd: null });
+    } else {
+      targetResults.push(result);
+    }
+  }
+
+  // Top-level aggregated summary
+  const topLevelDir = path.join(process.cwd(), 'scan-output', env, timestamp);
+  await mkdir(topLevelDir, { recursive: true });
+  const aggregateMd = aggregateTargets({
+    app: config.app,
+    env,
+    timestamp,
+    successes: targetResults.filter((r) => r.summaryMd),
+    failures,
   });
-  const contextPath = await writeContext(rendered);
+  await writeSummary(path.join(topLevelDir, 'summary.md'), aggregateMd);
+  await writeSummary(path.join(topLevelDir, 'results.txt'), aggregateMd);
 
-  // Cleanup the context file (which contains the plaintext password) on every
-  // exit path — success or failure. Best-effort; deleteContext swallows errors.
+  return {
+    exitCode: failures.length === 0 ? 0 : 1,
+    outputDir: topLevelDir,
+    summaryPath: path.join(topLevelDir, 'summary.md'),
+    txtPath: path.join(topLevelDir, 'results.txt'),
+    targets: targetResults,
+    failures,
+  };
+}
+
+async function runOneTarget({
+  target,
+  env,
+  timestamp,
+  credentials,
+  runZap,
+  readResultsJson,
+  writeSummary,
+  writeContext,
+  deleteContext,
+  getAuthContext,
+  mkdirOutput,
+  flavor,
+}) {
+  const runId = `${target.name}-${Date.now()}`;
+  let contextPath = null;
+  const outputDir = await mkdirOutput(env, timestamp, target.name);
+
   try {
+    const { contextXml, scriptPath } = await getAuthContext({
+      target,
+      credentials,
+      configsDir: CONFIGS_DIR,
+      runId,
+    });
+    contextPath = await writeContext(contextXml, runId);
+
     const args = buildZapArgs({
       flavor,
-      targetUrl,
+      targetUrl: target.url,
       configsDir: CONFIGS_DIR,
       outputDir,
       contextPath,
+      scriptPath,
     });
 
     await runZap(args);
 
     const resultsJsonPath = path.join(outputDir, 'results.json');
     const results = await readResultsJson(resultsJsonPath);
-    const summaryMd = summarize(results);
-    const summaryPath = path.join(outputDir, 'summary.md');
-    await writeSummary(summaryPath, summaryMd);
+    const summaryMd = summarize(results, { targetName: target.name });
+    await writeSummary(path.join(outputDir, 'summary.md'), summaryMd);
+    await writeSummary(path.join(outputDir, 'results.txt'), summaryMd);
 
-    // Also emit results.txt (TAC submission artifact). For V1 this is the same
-    // as the markdown summary; the orchestrator could later format differently.
-    // Uses deps.writeSummary (not raw writeFile) so tests can mock both writes.
-    const txtPath = path.join(outputDir, 'results.txt');
-    await writeSummary(txtPath, summaryMd);
-
-    return { exitCode: 0, outputDir, summaryPath, txtPath };
+    return { name: target.name, outputDir, summaryMd };
+  } catch (error) {
+    return {
+      name: target.name,
+      outputDir,
+      error,
+      stage: detectStage(error),
+    };
   } finally {
-    await deleteContext(contextPath);
+    if (contextPath) {
+      await deleteContext(contextPath);
+    }
   }
+}
+
+function detectStage(error) {
+  // Best-effort stage classification from error message — for the failure summary
+  const msg = String(error?.message || '');
+  if (/exited with code|killed by signal|Docker is not installed/.test(msg)) return 'runZap';
+  if (/Could not read ZAP results|not valid JSON/.test(msg)) return 'readResults';
+  if (/Could not load config/.test(msg)) return 'loadConfig';
+  if (/auth\./.test(msg)) return 'getAuthContext';
+  return 'unknown';
 }
