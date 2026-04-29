@@ -9,7 +9,8 @@
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "test:integration": "RUN_INTEGRATION=1 vitest run tests/integration --passWithNoTests"
+    "test:integration": "RUN_INTEGRATION=1 vitest run tests/integration --passWithNoTests",
+    "smoke": "node bin/casa-ready.js --help"
   },
   "keywords": [
     "casa",

@@ -69,7 +69,9 @@ async function main(argv) {
     process.stdout.write(`\n✓ Scan complete.\n`);
     process.stdout.write(`  Artifacts: ${result.outputDir}\n`);
     process.stdout.write(`  Summary:   ${result.summaryPath}\n`);
-    process.stdout.write(`  TAC submission: upload results.txt + results.xml from the artifacts dir.\n`);
+    process.stdout.write(
+      `  TAC submission: upload the contents of the artifacts directory to the CASA portal.\n`
+    );
     process.exit(result.exitCode);
   } catch (err) {
     process.stderr.write(`\n✗ ${err.message}\n`);
@@ -77,4 +79,13 @@ async function main(argv) {
   }
 }
 
-main(process.argv.slice(2));
+main(process.argv.slice(2)).catch((err) => {
+  // Defensive — every async path inside main() catches its own errors and
+  // calls process.exit, so we shouldn't reach this. But if something throws
+  // synchronously before the first await (e.g., a future refactor moves
+  // runScan above the try-catch), we'd otherwise get an
+  // UnhandledPromiseRejectionWarning instead of the clean ✗ message users
+  // expect.
+  process.stderr.write(`\n✗ ${err.message}\n`);
+  process.exit(1);
+});
