@@ -30,8 +30,12 @@ export function summarize(results, options = {}) {
     (s.alerts || []).map((a) => ({ ...a, site: s['@name'] }))
   );
 
+  const heading = options.targetName
+    ? `# CASA Ready Scan Summary — ${options.targetName}`
+    : '# CASA Ready Scan Summary';
+
   if (allAlerts.length === 0) {
-    return '# CASA Ready Scan Summary\n\nNo findings.\n';
+    return `${heading}\n\nNo findings.\n`;
   }
 
   const thirdPartyPatterns = [
@@ -40,7 +44,7 @@ export function summarize(results, options = {}) {
   ];
 
   const grouped = groupByRisk(allAlerts);
-  const lines = ['# CASA Ready Scan Summary', ''];
+  const lines = [heading, ''];
   lines.push(`Total findings: ${allAlerts.length}`);
   lines.push('');
 
