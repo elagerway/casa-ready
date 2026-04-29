@@ -1,10 +1,22 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 
+const ZAP_IMAGE = 'zaproxy/zap-stable';
+const ZAP_POLICY_PATH = '/zap/configs/casa-tier2.policy';
+const ZAP_CONTEXT_PATH = '/zap/context.xml';
+
 const FLAVOR_TO_SCRIPT = {
   casa: 'zap-full-scan.py',
   baseline: 'zap-baseline.py',
 };
 
+/**
+ * Build the docker argv for a ZAP scan.
+ *
+ * The user-supplied `contextPath` is mounted to a fixed in-container path
+ * (`/zap/context.xml`) — this keeps Docker Desktop on macOS happy (which only
+ * shares a limited set of host paths) and avoids any : / , characters in the
+ * host path breaking the volume mount string.
+ */
 export function buildZapArgs({
   flavor,
   targetUrl,
@@ -24,15 +36,15 @@ export function buildZapArgs({
     '-v',
     `${outputDir}:/zap/wrk:rw`,
     '-v',
-    `${contextPath}:${contextPath}:ro`,
-    'zaproxy/zap-stable',
+    `${contextPath}:${ZAP_CONTEXT_PATH}:ro`,
+    ZAP_IMAGE,
     script,
     '-t',
     targetUrl,
     '-c',
-    '/zap/configs/casa-tier2.policy',
+    ZAP_POLICY_PATH,
     '-n',
-    contextPath,
+    ZAP_CONTEXT_PATH,
     '-J',
     'results.json',
     '-x',
@@ -53,14 +65,22 @@ export function runZap(args, { spawnFn = nodeSpawn } = {}) {
     }
     child.on('error', (err) => {
       if (err.code === 'ENOENT') {
-        reject(new Error('Docker is not installed or not on PATH. Install Docker Desktop (macOS/Windows) or docker-ce (Linux).'));
+        reject(
+          new Error(
+            'Docker is not installed or not on PATH. Install Docker Desktop (macOS/Windows) or docker-ce (Linux).'
+          )
+        );
       } else {
         reject(err);
       }
     });
-    child.on('exit', (code) => {
+    child.on('exit', (code, signal) => {
       if (code === 0) {
         resolve({ exitCode: 0 });
+      } else if (signal) {
+        // Container was killed (OOM, docker stop, timeout). `code` is null in
+        // this case, so the previous "exited with code null" message was junk.
+        reject(new Error(`ZAP container was killed by signal ${signal}`));
       } else {
         reject(new Error(`ZAP container exited with code ${code}`));
       }

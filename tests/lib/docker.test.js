@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { buildZapArgs, runZap } from '../../cli/lib/docker.js';
 
 describe('buildZapArgs', () => {
-  it('builds argv for the casa scan flavor', () => {
+  it('builds the exact argv for the casa scan flavor', () => {
     const args = buildZapArgs({
       flavor: 'casa',
       targetUrl: 'https://magpipe.ai',
@@ -10,19 +10,32 @@ describe('buildZapArgs', () => {
       outputDir: '/abs/scan-output/prod/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-abc.xml',
     });
-    expect(args[0]).toBe('run');
-    expect(args).toContain('--rm');
-    expect(args).toContain('-v');
-    expect(args.join(' ')).toContain('/abs/configs/zap:/zap/configs:ro');
-    expect(args.join(' ')).toContain('/abs/scan-output/prod/2026-04-29T12-00-00Z:/zap/wrk:rw');
-    expect(args).toContain('zaproxy/zap-stable');
-    expect(args).toContain('zap-full-scan.py');
-    expect(args).toContain('-t');
-    expect(args).toContain('https://magpipe.ai');
-    expect(args).toContain('-c');
-    expect(args).toContain('/zap/configs/casa-tier2.policy');
-    expect(args).toContain('-n');
-    expect(args).toContain('/tmp/casa-ctx-abc.xml');
+    // Pin the full sequence — Docker argv is position-sensitive (flags before
+    // the image name go to docker; flags after go to the container entrypoint).
+    expect(args).toStrictEqual([
+      'run',
+      '--rm',
+      '-v',
+      '/abs/configs/zap:/zap/configs:ro',
+      '-v',
+      '/abs/scan-output/prod/2026-04-29T12-00-00Z:/zap/wrk:rw',
+      '-v',
+      '/tmp/casa-ctx-abc.xml:/zap/context.xml:ro',
+      'zaproxy/zap-stable',
+      'zap-full-scan.py',
+      '-t',
+      'https://magpipe.ai',
+      '-c',
+      '/zap/configs/casa-tier2.policy',
+      '-n',
+      '/zap/context.xml',
+      '-J',
+      'results.json',
+      '-x',
+      'results.xml',
+      '-r',
+      'results.html',
+    ]);
   });
 
   it('uses zap-baseline.py for the baseline flavor', () => {
@@ -35,6 +48,21 @@ describe('buildZapArgs', () => {
     });
     expect(args).toContain('zap-baseline.py');
     expect(args).not.toContain('zap-full-scan.py');
+  });
+
+  it('mounts the user contextPath to the fixed in-container path /zap/context.xml', () => {
+    // Documents the macOS Docker Desktop fix: callers can pass any host path,
+    // the container always sees /zap/context.xml. -n is wired to the same.
+    const args = buildZapArgs({
+      flavor: 'casa',
+      targetUrl: 'https://x',
+      configsDir: '/c',
+      outputDir: '/o',
+      contextPath: '/Users/erik/scan-output/ctx.xml',
+    });
+    expect(args).toContain('/Users/erik/scan-output/ctx.xml:/zap/context.xml:ro');
+    const nIdx = args.indexOf('-n');
+    expect(args[nIdx + 1]).toBe('/zap/context.xml');
   });
 
   it('throws on unknown flavor', () => {
@@ -50,31 +78,51 @@ describe('buildZapArgs', () => {
   });
 });
 
+function fakeChild(eventToFire) {
+  // eventToFire: { event: 'exit'|'error', args: [...] }
+  return {
+    stdout: { on: () => {} },
+    stderr: { on: () => {} },
+    on: (event, cb) => {
+      if (event === eventToFire.event) {
+        setTimeout(() => cb(...eventToFire.args), 0);
+      }
+    },
+  };
+}
+
 describe('runZap', () => {
   it('resolves on exit code 0', async () => {
-    const fakeSpawn = vi.fn(() => ({
-      stdout: { on: () => {} },
-      stderr: { on: () => {} },
-      on: (event, cb) => {
-        if (event === 'exit') setTimeout(() => cb(0, null), 0);
-      },
-    }));
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [0, null] }));
     await expect(
       runZap(['run', '--rm', 'hello-world'], { spawnFn: fakeSpawn })
     ).resolves.toEqual({ exitCode: 0 });
-    expect(fakeSpawn).toHaveBeenCalledWith('docker', ['run', '--rm', 'hello-world'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    expect(fakeSpawn).toHaveBeenCalledWith('docker', ['run', '--rm', 'hello-world'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
   });
 
   it('rejects on non-zero exit code', async () => {
-    const fakeSpawn = vi.fn(() => ({
-      stdout: { on: () => {} },
-      stderr: { on: () => {} },
-      on: (event, cb) => {
-        if (event === 'exit') setTimeout(() => cb(2, null), 0);
-      },
-    }));
-    await expect(
-      runZap(['run', '--rm', 'x'], { spawnFn: fakeSpawn })
-    ).rejects.toThrow(/exited with code 2/i);
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [2, null] }));
+    await expect(runZap(['run', '--rm', 'x'], { spawnFn: fakeSpawn })).rejects.toThrow(
+      /exited with code 2/i
+    );
+  });
+
+  it('rejects with a friendly message when Docker is not installed (ENOENT)', async () => {
+    const enoent = Object.assign(new Error('spawn docker ENOENT'), { code: 'ENOENT' });
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'error', args: [enoent] }));
+    await expect(runZap(['run'], { spawnFn: fakeSpawn })).rejects.toThrow(
+      /Docker is not installed or not on PATH/
+    );
+  });
+
+  it('rejects when the container is killed by a signal (e.g. OOM/SIGKILL)', async () => {
+    // Node emits exit with (code=null, signal='SIGKILL') in this case.
+    // The previous handler produced "exited with code null" — junk.
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [null, 'SIGKILL'] }));
+    await expect(runZap(['run'], { spawnFn: fakeSpawn })).rejects.toThrow(
+      /killed by signal SIGKILL/
+    );
   });
 });
