@@ -20,6 +20,23 @@
       <class>org.zaproxy.zap.model.StandardParameterParser</class>
       <config>{"kvps":"&amp;","kvs":"=","struct":[]}</config>
     </postparser>
+    <!--
+      Form-based authentication (ZAP type=2). ZAP infers username/password
+      FIELD NAMES from the key names in `loginbody` (e.g. given
+      `email={%username%}&password={%password%}`, ZAP knows the field is
+      called `email`). The casa-ready.config.js `usernameField` and
+      `passwordField` settings are therefore for human reference / future
+      auth-type variants — they are NOT injected here.
+
+      `loggedin` is a regex matched against every response body. Avoid
+      `<` or `&` in the pattern; the renderer will XML-escape them and
+      ZAP will then see entity-encoded characters instead of literals.
+
+      Known V1 limitation: this form-auth type does NOT work with JSON-body
+      login endpoints (e.g. Supabase Auth's POST /auth/v1/token returning
+      a JWT). Those need ZAP type=4 (script-based auth). Tracked as a
+      follow-up in the project task list.
+    -->
     <authentication>
       <type>2</type>
       <strategy>EACH_RESP</strategy>
