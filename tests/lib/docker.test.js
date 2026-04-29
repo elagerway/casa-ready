@@ -46,15 +46,23 @@ describe('buildZapArgs', () => {
       contextPath: '/tmp/casa-ctx-supabase.xml',
       scriptPath: '/abs/configs/zap/supabase-jwt-script.js',
     });
-    // The script mount should appear before the image name (it's a docker flag).
-    expect(args.join(' ')).toContain(
+    // The script mount appears as a discrete array element (use toContain on
+    // the array, not args.join(' ').toContain — paths could contain spaces).
+    expect(args).toContain(
       '/abs/configs/zap/supabase-jwt-script.js:/zap/configs/supabase-jwt-script.js:ro'
     );
-    // After the image name + script name, the -z config registers the script
-    // with ZAP under the name 'supabase-jwt-auth' (matching the context's
-    // <script><name> reference).
+    // The script-mount -v flag must appear BEFORE the image name (Docker side).
+    const scriptMountIdx = args.indexOf(
+      '/abs/configs/zap/supabase-jwt-script.js:/zap/configs/supabase-jwt-script.js:ro'
+    );
+    const imageIdx = args.indexOf('zaproxy/zap-stable');
+    expect(scriptMountIdx).toBeLessThan(imageIdx);
+    // The -z config registers the script with ZAP under the name
+    // 'supabase-jwt-auth' (matching the context's <script><name>). It must
+    // appear AFTER the image name (container side, passed to ZAP).
     expect(args).toContain('-z');
     const zIdx = args.indexOf('-z');
+    expect(zIdx).toBeGreaterThan(imageIdx);
     expect(args[zIdx + 1]).toContain('script.load');
     expect(args[zIdx + 1]).toContain('supabase-jwt-auth');
     expect(args[zIdx + 1]).toContain('/zap/configs/supabase-jwt-script.js');

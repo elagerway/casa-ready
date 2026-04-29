@@ -71,6 +71,9 @@ export function buildZapArgs({
   // ZAP's script registry must match the <script><name> in the context XML
   // (currently 'supabase-jwt-auth', set by the supabase-jwt context template).
   if (scriptPath) {
+    // TODO(V1.2): when a 2nd script-based auth ships, parameterize the
+    // script name (currently hardcoded 'supabase-jwt-auth') by passing it
+    // through from the auth module alongside scriptPath.
     args.push(
       '-z',
       `script.load(name='supabase-jwt-auth',type='authentication',engine='Oracle Nashorn',file='${containerScriptPath}')`
