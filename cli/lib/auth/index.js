@@ -1,8 +1,9 @@
 import * as form from './form.js';
+import * as supabaseJwt from './supabase-jwt.js';
 
 const RENDERERS = {
   form,
-  // 'supabase-jwt' added in Task 4
+  'supabase-jwt': supabaseJwt,
 };
 
 export async function getContext(opts) {
