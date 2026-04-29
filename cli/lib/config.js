@@ -127,7 +127,9 @@ export function resolveTargets(config, envName, filterName) {
     throw new Error(`Unknown env: ${envName}. Known envs: ${known}`);
   }
   if (!filterName) {
-    return envDef.targets;
+    // Return a shallow copy so callers can't mutate the live config (e.g.
+    // splice/push corrupting the next call's resolution).
+    return envDef.targets.slice();
   }
   const filtered = envDef.targets.filter((t) => t.name === filterName);
   if (filtered.length === 0) {
