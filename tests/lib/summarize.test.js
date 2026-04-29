@@ -34,4 +34,105 @@ describe('summarize', () => {
     const md = summarize({});
     expect(md).toMatch(/no findings/i);
   });
+
+  it('emits "CWE: N/A" when an alert has no cweid (real ZAP omits it on some informational findings)', () => {
+    const md = summarize({
+      site: [
+        {
+          '@name': 'x',
+          alerts: [
+            {
+              alert: 'Mystery info',
+              riskcode: '0',
+              confidence: '1',
+              count: '1',
+              instances: [{ uri: 'https://x/' }],
+              solution: '',
+              // cweid intentionally absent
+            },
+          ],
+        },
+      ],
+    });
+    expect(md).toContain('- CWE: N/A');
+    expect(md).not.toContain('CWE-undefined');
+  });
+
+  it('does NOT flag an alert with mixed first-party + third-party instances as fully NA', () => {
+    const md = summarize({
+      site: [
+        {
+          '@name': 'x',
+          alerts: [
+            {
+              alert: 'Header missing',
+              riskcode: '1',
+              confidence: '3',
+              cweid: '693',
+              count: '2',
+              instances: [
+                { uri: 'https://magpipe.ai/page' },
+                { uri: 'https://cdn.jsdelivr.net/lib.js' },
+              ],
+              solution: 'Set the header.',
+            },
+          ],
+        },
+      ],
+    });
+    // Expect a partial-NA note, not a "all instances" pure NA flag
+    expect(md).toMatch(/1\/2 instances on third-party hosts/);
+    expect(md).toMatch(/first-party instances still need triage/);
+    expect(md).not.toMatch(/all instances on third-party hosts/);
+  });
+
+  it('flags fully NA when ALL instances are on third-party hosts', () => {
+    const md = summarize({
+      site: [
+        {
+          '@name': 'x',
+          alerts: [
+            {
+              alert: 'CDN-only header',
+              riskcode: '1',
+              confidence: '3',
+              cweid: '693',
+              count: '2',
+              instances: [
+                { uri: 'https://cdn.jsdelivr.net/a.js' },
+                { uri: 'https://unpkg.com/b.js' },
+              ],
+              solution: 'Set the header.',
+            },
+          ],
+        },
+      ],
+    });
+    expect(md).toMatch(/all instances on third-party hosts/);
+  });
+
+  it('respects options.extraThirdPartyPatterns to extend the default CDN list', () => {
+    const md = summarize(
+      {
+        site: [
+          {
+            '@name': 'x',
+            alerts: [
+              {
+                alert: 'CDN-only header',
+                riskcode: '1',
+                confidence: '3',
+                cweid: '693',
+                count: '1',
+                instances: [{ uri: 'https://d111111abcdef8.cloudfront.net/asset.js' }],
+                solution: 'Set the header.',
+              },
+            ],
+          },
+        ],
+      },
+      { extraThirdPartyPatterns: [/cloudfront\.net/] }
+    );
+    expect(md).toMatch(/all instances on third-party hosts.*cloudfront\.net/);
+  });
 });

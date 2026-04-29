@@ -7,7 +7,7 @@ const RISK_LABEL = {
 
 const RISK_ORDER = ['3', '2', '1', '0'];
 
-const THIRD_PARTY_HOST_PATTERNS = [
+const DEFAULT_THIRD_PARTY_HOST_PATTERNS = [
   /cdn\.jsdelivr\.net/,
   /cdnjs\.cloudflare\.com/,
   /unpkg\.com/,
@@ -15,13 +15,29 @@ const THIRD_PARTY_HOST_PATTERNS = [
   /google-analytics\.com/,
 ];
 
-export function summarize(results) {
+/**
+ * Reduce a parsed ZAP results.json into a markdown triage summary.
+ *
+ * @param {object} results — parsed ZAP results.json (see fixture)
+ * @param {object} [options]
+ * @param {RegExp[]} [options.extraThirdPartyPatterns] — additional host
+ *   regexes to treat as third-party (e.g. user's own CDN, fastly, akamai).
+ *   Merged with the default list; not a replacement.
+ */
+export function summarize(results, options = {}) {
   const sites = Array.isArray(results.site) ? results.site : [];
-  const allAlerts = sites.flatMap((s) => (s.alerts || []).map((a) => ({ ...a, site: s['@name'] })));
+  const allAlerts = sites.flatMap((s) =>
+    (s.alerts || []).map((a) => ({ ...a, site: s['@name'] }))
+  );
 
   if (allAlerts.length === 0) {
     return '# CASA Ready Scan Summary\n\nNo findings.\n';
   }
+
+  const thirdPartyPatterns = [
+    ...DEFAULT_THIRD_PARTY_HOST_PATTERNS,
+    ...(options.extraThirdPartyPatterns || []),
+  ];
 
   const grouped = groupByRisk(allAlerts);
   const lines = ['# CASA Ready Scan Summary', ''];
@@ -36,15 +52,15 @@ export function summarize(results) {
     for (const alert of alerts) {
       lines.push(`### ${alert.alert}`);
       lines.push('');
-      lines.push(`- CWE-${alert.cweid}`);
+      lines.push(alert.cweid ? `- CWE-${alert.cweid}` : '- CWE: N/A');
       lines.push(`- Confidence: ${alert.confidence}`);
       lines.push(`- Instances: ${alert.count}`);
-      const naFlag = checkLikelyNA(alert);
+      const naFlag = checkLikelyNA(alert, thirdPartyPatterns);
       if (naFlag) {
         lines.push(`- **Likely NA:** ${naFlag}`);
       }
       lines.push('');
-      lines.push(`> ${(alert.solution || '').replace(/\n/g, ' ')}`);
+      lines.push(`> ${(alert.solution || '').replace(/\r?\n/g, ' ')}`);
       lines.push('');
     }
   }
@@ -62,14 +78,20 @@ function groupByRisk(alerts) {
   return out;
 }
 
-function checkLikelyNA(alert) {
+function checkLikelyNA(alert, patterns) {
   const instances = alert.instances || [];
-  for (const inst of instances) {
-    for (const pattern of THIRD_PARTY_HOST_PATTERNS) {
-      if (pattern.test(inst.uri)) {
-        return `instance on third-party host (${inst.uri})`;
-      }
-    }
+  if (instances.length === 0) return null;
+
+  const cdnHits = instances.filter((inst) =>
+    patterns.some((p) => p.test(inst.uri))
+  );
+  if (cdnHits.length === 0) return null;
+
+  // Only flag as fully NA when EVERY instance is on a third-party host.
+  // A mixed alert (some first-party, some third-party) is still a real finding
+  // for the first-party instances — call that out instead of dismissing it.
+  if (cdnHits.length === instances.length) {
+    return `all instances on third-party hosts (${cdnHits[0].uri})`;
   }
-  return null;
+  return `${cdnHits.length}/${instances.length} instances on third-party hosts (${cdnHits[0].uri}) — first-party instances still need triage`;
 }
