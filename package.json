@@ -7,7 +7,9 @@
     "casa-ready": "./bin/casa-ready.js"
   },
   "scripts": {
-    "test": "echo \"V1 in progress\" && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "RUN_INTEGRATION=1 vitest run tests/integration"
   },
   "keywords": [
     "casa",
@@ -25,5 +27,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1"
   }
 }
