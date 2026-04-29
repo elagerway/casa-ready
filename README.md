@@ -2,7 +2,7 @@
 
 > An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying $15K–$40K to consulting firms.
 
-**Status:** V1 (`v0.1.0`) — first usable release. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V1.1 (`v0.2.0`) — multi-target scanning + Supabase auth. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
@@ -75,10 +75,11 @@ mv casa-ready.config.example.js casa-ready.config.js
 export CASA_READY_USER=your-test-user@example.com
 export CASA_READY_PASS=your-test-password
 
-# 5. Scan staging (default)
-casa-ready scan          # or: npx casa-ready scan
+# 5. Scan staging — runs all configured targets sequentially
+casa-ready scan                                # all targets in staging
+casa-ready scan --target spa                   # just the 'spa' target
 
-# 6. Scan prod (requires explicit confirmation)
+# 6. Scan prod — requires explicit confirmation
 casa-ready scan --env prod --confirm-prod
 ```
 
@@ -111,12 +112,60 @@ RUN_INTEGRATION=1 npm run test:integration
 
 First run pulls the ~900 MB `zaproxy/zap-stable` image; allow up to 10 minutes. Subsequent runs are faster. Successful smoke produces `scan-output/staging/<timestamp>/` containing `results.json`, `results.txt`, `results.xml`, `results.html`, and `summary.md`.
 
+## Migrating from v0.1.0 → v0.2.0 (V1.1)
+
+V1.1 introduces multi-target scanning, which is a breaking config change. The single `auth` block per env is replaced by a `targets[]` array, and each target has its own URL + auth type.
+
+**Before (v0.1.0 single-target form auth):**
+
+```javascript
+export default {
+  app: 'your-app',
+  envs: {
+    staging: 'https://staging.your-app.com',
+    prod: 'https://your-app.com',
+  },
+  auth: {
+    type: 'form',
+    loginUrl: '...',
+    loginRequestBody: 'email={%username%}&password={%password%}',
+    // ...
+  },
+};
+```
+
+**After (v0.2.0 multi-target):**
+
+```javascript
+export default {
+  app: 'your-app',
+  envs: {
+    staging: {
+      targets: [
+        {
+          name: 'spa',
+          url: 'https://staging.your-app.com',
+          auth: { type: 'form', /* same fields as before */ },
+        },
+        // Add additional targets (e.g. Supabase API) here.
+      ],
+    },
+    prod: { targets: [/* same shape */] },
+  },
+};
+```
+
+See `casa-ready.config.example.js` for a worked example with both `form` and `supabase-jwt` auth.
+
+### New auth type: `supabase-jwt`
+
+For Supabase-backed apps, the `supabase-jwt` auth type performs the JSON-body Supabase login, extracts the JWT, and includes it on subsequent requests. It also wires ZAP's periodic re-auth so long scans don't fail when the 1-hour JWT expires.
+
 ### Known V1 limitations
 
 - **Scan policy is a permissive fallback, not the official ADA-tuned policy.** The App Defense Alliance distributes its CASA-tuned ZAP policy via the [Tier 2 tooling matrix](https://appdefensealliance.dev/casa/tier-2/tooling-matrix), not in their public GitHub repo. V1 ships with a `MEDIUM`/`HIGH` OWASP Top 10 fallback in `configs/zap/casa-tier2.policy`. Replacing it with the official policy is the first V1.1 improvement (see `configs/zap/README.md`).
-- **Form-based auth only.** ZAP's form-auth (type=2) is the only auth path supported in V1. JSON-body login endpoints (e.g. Supabase Auth's `POST /auth/v1/token`) need ZAP's script-based auth (type=4) — tracked as a follow-up.
+- **Two auth types: `form` and `supabase-jwt`.** Other JSON-API auth providers (Auth0, Firebase, custom) need a new auth module — generic `json-script` is a future addition.
 - **Single `loginUrl` for all envs.** Both staging and prod scans use the one `auth.loginUrl` from your config. If your prod login URL differs, edit the config before scanning prod.
-- **Single origin.** V1 scans the primary URL you point it at. Multi-origin (e.g. SPA + separate API host) is V1.1.
 - **Anonymous + authenticated coverage.** ZAP only walks the surfaces it can reach with the supplied credentials. OAuth-gated pages (e.g. Gmail-restricted user paths) require V2's authenticated-flow scanning.
 
 ## Status & roadmap
@@ -128,7 +177,7 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 | Version | Scope | Triggered by |
 |---|---|---|
 | **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
-| **V1.1** | Adds Supabase / API endpoints as a second scan target with API-tuned config | V1 ships clean + we have an endpoint manifest |
+| **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V2** | Authenticated scan: ZAP context with session replay + OAuth flows | V1.1 ships + TAC findings reveal coverage gaps anonymous scans can't catch |
 | later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |
