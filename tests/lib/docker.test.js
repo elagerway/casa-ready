@@ -2,16 +2,15 @@ import { describe, it, expect, vi } from 'vitest';
 import { buildZapArgs, runZap } from '../../cli/lib/docker.js';
 
 describe('buildZapArgs', () => {
-  it('builds the exact argv for the casa scan flavor', () => {
+  it('builds the exact argv for casa scan with no auth script (form auth)', () => {
     const args = buildZapArgs({
       flavor: 'casa',
       targetUrl: 'https://magpipe.ai',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/scan-output/prod/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-abc.xml',
+      scriptPath: null,
     });
-    // Pin the full sequence — Docker argv is position-sensitive (flags before
-    // the image name go to docker; flags after go to the container entrypoint).
     expect(args).toStrictEqual([
       'run',
       '--rm',
@@ -36,6 +35,29 @@ describe('buildZapArgs', () => {
       '-r',
       'results.html',
     ]);
+  });
+
+  it('mounts auth script and registers it via -z when scriptPath is provided', () => {
+    const args = buildZapArgs({
+      flavor: 'casa',
+      targetUrl: 'https://api.example.com',
+      configsDir: '/abs/configs/zap',
+      outputDir: '/abs/scan-output/staging/2026-04-29T12-00-00Z',
+      contextPath: '/tmp/casa-ctx-supabase.xml',
+      scriptPath: '/abs/configs/zap/supabase-jwt-script.js',
+    });
+    // The script mount should appear before the image name (it's a docker flag).
+    expect(args.join(' ')).toContain(
+      '/abs/configs/zap/supabase-jwt-script.js:/zap/configs/supabase-jwt-script.js:ro'
+    );
+    // After the image name + script name, the -z config registers the script
+    // with ZAP under the name 'supabase-jwt-auth' (matching the context's
+    // <script><name> reference).
+    expect(args).toContain('-z');
+    const zIdx = args.indexOf('-z');
+    expect(args[zIdx + 1]).toContain('script.load');
+    expect(args[zIdx + 1]).toContain('supabase-jwt-auth');
+    expect(args[zIdx + 1]).toContain('/zap/configs/supabase-jwt-script.js');
   });
 
   it('uses zap-baseline.py for the baseline flavor', () => {
