@@ -23,6 +23,9 @@ const DEFAULT_THIRD_PARTY_HOST_PATTERNS = [
  * @param {RegExp[]} [options.extraThirdPartyPatterns] — additional host
  *   regexes to treat as third-party (e.g. user's own CDN, fastly, akamai).
  *   Merged with the default list; not a replacement.
+ * @param {string} [options.targetName] — optional target name to include in
+ *   the heading (e.g. 'api', 'web'). If provided, heading will be
+ *   "# CASA Ready Scan Summary — {targetName}".
  */
 export function summarize(results, options = {}) {
   const sites = Array.isArray(results.site) ? results.site : [];
