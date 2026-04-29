@@ -1,0 +1,56 @@
+{
+  "@version": "2.14.0",
+  "@generated": "Wed, 29 Apr 2026 12:00:00",
+  "site": [
+    {
+      "@name": "https://magpipe-staging-snapsonic.vercel.app",
+      "alerts": [
+        {
+          "pluginid": "10038",
+          "alertRef": "10038",
+          "alert": "Content Security Policy (CSP) Header Not Set",
+          "name": "Content Security Policy (CSP) Header Not Set",
+          "riskcode": "3",
+          "confidence": "3",
+          "riskdesc": "High (High)",
+          "desc": "Content Security Policy (CSP) is an added layer of security...",
+          "instances": [{ "uri": "https://magpipe-staging-snapsonic.vercel.app/", "method": "GET" }],
+          "count": "1",
+          "solution": "Ensure that your web server, application server, load balancer, etc. is configured to set the Content-Security-Policy header.",
+          "cweid": "693",
+          "wascid": "15"
+        },
+        {
+          "pluginid": "10035",
+          "alertRef": "10035",
+          "alert": "Strict-Transport-Security Header Not Set",
+          "name": "Strict-Transport-Security Header Not Set",
+          "riskcode": "1",
+          "confidence": "3",
+          "riskdesc": "Low (High)",
+          "desc": "HTTP Strict Transport Security (HSTS)...",
+          "instances": [{ "uri": "https://magpipe-staging-snapsonic.vercel.app/", "method": "GET" }],
+          "count": "1",
+          "solution": "Ensure that your web server, application server, load balancer, etc. is configured to enforce Strict-Transport-Security.",
+          "cweid": "319",
+          "wascid": "15"
+        },
+        {
+          "pluginid": "10063",
+          "alertRef": "10063",
+          "alert": "Permissions Policy Header Not Set",
+          "name": "Permissions Policy Header Not Set",
+          "riskcode": "1",
+          "confidence": "3",
+          "riskdesc": "Low (High)",
+          "desc": "Permissions Policy Header is...",
+          "instances": [{ "uri": "https://cdn.jsdelivr.net/npm/somelib@1.0.0/dist/somelib.min.js", "method": "GET" }],
+          "count": "1",
+          "solution": "Ensure that your web server returns a Permissions-Policy header.",
+          "cweid": "693",
+          "wascid": "15"
+        }
+      ]
+    }
+  ]
+}

@@ -1,13 +1,16 @@
 {
   "name": "casa-ready",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Open-source toolkit to pass Google CASA Tier 2 security assessments without consulting-firm costs.",
   "type": "module",
   "bin": {
     "casa-ready": "./bin/casa-ready.js"
   },
   "scripts": {
-    "test": "echo \"V1 in progress\" && exit 0"
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:integration": "RUN_INTEGRATION=1 vitest run tests/integration --passWithNoTests",
+    "smoke": "node bin/casa-ready.js --help"
   },
   "keywords": [
     "casa",
@@ -25,5 +28,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.1"
   }
 }
