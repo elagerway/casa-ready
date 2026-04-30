@@ -90,4 +90,18 @@ describe('ConfigSchema', () => {
     const parsed = ConfigSchema.parse(cfg);
     expect(parsed.envs.staging.targets[1].auth.refreshSeconds).toBe(3300);
   });
+
+  it('rejects an empty envs object (must contain at least one env)', () => {
+    expect(() => ConfigSchema.parse({ ...validConfig, envs: {} })).toThrow(
+      /envs.*at least one/i
+    );
+  });
+
+  it('rejects unknown fields via .strict() — protects against typos in user YAML', () => {
+    // The schema's .strict() rejects unknown keys. This is what catches
+    // common user mistakes like `auth.bogusField: true` or `loginUrll`.
+    const bad = structuredClone(validConfig);
+    bad.envs.staging.targets[0].auth.bogusField = true;
+    expect(() => ConfigSchema.parse(bad)).toThrow(/unrecognized|bogusField/i);
+  });
 });
