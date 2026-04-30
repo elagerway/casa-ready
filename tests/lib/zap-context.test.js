@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderContext } from '../../cli/lib/zap-context.js';
+import { renderContext, deriveOriginScope } from '../../cli/lib/zap-context.js';
 
 const sampleTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
@@ -79,5 +79,39 @@ describe('renderContext', () => {
     // The literal `{{password}}` text gets XML-escaped (the braces have no
     // special XML meaning, so they pass through) and is NOT re-substituted.
     expect(result).toBe('<password>{{password}}</password>');
+  });
+});
+
+describe('deriveOriginScope', () => {
+  it('derives an origin-scoped includregex for an https URL with a path', () => {
+    expect(deriveOriginScope('https://x.supabase.co/functions/v1')).toBe(
+      '^https://x\\.supabase\\.co/.*'
+    );
+  });
+
+  it('derives an origin-scoped includregex for an http URL with a port', () => {
+    expect(deriveOriginScope('http://host.docker.internal:3000/api')).toBe(
+      '^http://host\\.docker\\.internal:3000/.*'
+    );
+  });
+
+  it('strips query strings and fragments (only origin matters for scope)', () => {
+    expect(
+      deriveOriginScope('https://magpipe.ai/login?next=/dashboard#x')
+    ).toBe('^https://magpipe\\.ai/.*');
+  });
+
+  it('escapes regex meta characters in the host', () => {
+    // Hypothetical paranoid case — most real hosts don't have these, but the
+    // regex builder must not break if they show up. URL constructor only
+    // accepts a small set of host chars but `.` definitely matters.
+    const result = deriveOriginScope('https://api.example.com/foo');
+    expect(result).toBe('^https://api\\.example\\.com/.*');
+  });
+
+  it('throws on an invalid URL', () => {
+    expect(() => deriveOriginScope('not a url')).toThrow(
+      /Could not derive origin scope/i
+    );
   });
 });

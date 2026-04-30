@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { renderContext } from '../zap-context.js';
+import { renderContext, deriveOriginScope } from '../zap-context.js';
 
 const TEMPLATE_FILENAME = 'form-context-template.xml';
 
@@ -10,6 +10,9 @@ export async function getContext({ target, credentials, configsDir, runId: _runI
   const contextXml = renderContext(template, {
     contextName: target.name,
     targetUrl: target.url,
+    // Origin-scoped includregex so loginUrls on different paths of the
+    // same host are still in scope (v0.2.2 fix).
+    originScope: deriveOriginScope(target.url),
     loginUrl: target.auth.loginUrl,
     loginRequestBody: target.auth.loginRequestBody,
     usernameField: target.auth.usernameField,

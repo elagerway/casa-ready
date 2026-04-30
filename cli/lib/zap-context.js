@@ -19,6 +19,32 @@ export function renderContext(template, values) {
   });
 }
 
+/**
+ * Derive a ZAP-compatible includregex that matches the entire origin (scheme +
+ * host + port) of the given URL. Used in <incregexes> so that loginUrls on a
+ * different path of the same host are still in scope.
+ *
+ * Example:
+ *   'https://x.supabase.co/functions/v1' → '^https://x\\.supabase\\.co/.*'
+ *   'http://host.docker.internal:3000/api' → '^http://host\\.docker\\.internal:3000/.*'
+ *
+ * Without this, a target like /functions/v1 with a loginUrl at /auth/v1/token
+ * would have ZAP's spider reject the URL with URL_NOT_IN_CONTEXT — discovered
+ * by the v0.2.1 dogfood scan.
+ */
+export function deriveOriginScope(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error(`Could not derive origin scope from URL: ${url}`);
+  }
+  // Escape regex metachars in the host (mostly `.`; colons in host:port are
+  // literal in regex).
+  const escapedHost = parsed.host.replace(/[.\\+*?^$()[\]{}|]/g, '\\$&');
+  return `^${parsed.protocol}//${escapedHost}/.*`;
+}
+
 function xmlEscape(str) {
   return str
     .replace(/&/g, '&amp;')

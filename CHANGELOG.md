@@ -4,6 +4,14 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] — 2026-04-30
+
+### Fixed
+- **Both context templates now use an origin-scoped includregex.** Previously `<incregexes>{{targetUrl}}.*</incregexes>` produced patterns like `https://x.supabase.co/functions/v1.*` — which excluded the loginUrl path `/auth/v1/token`. ZAP's spider then rejected the seed URL with `URL_NOT_IN_CONTEXT (url)` → `ScanNotStartedException`. Now uses `{{originScope}}` which produces `^https://x\.supabase\.co/.*` — the whole origin host is in scope, so cross-path loginUrls resolve cleanly. Surfaced by the v0.2.1 dogfood scan: juice-shop's `api` target failed for exactly this reason; would have hard-blocked Magpipe's supabase-jwt API target (loginUrl on `/auth/v1/`, target on `/functions/v1`).
+
+### Added
+- `cli/lib/zap-context.js` exports `deriveOriginScope(url)` — pure helper for converting any URL to a ZAP-safe origin-anchored regex with metachars escaped. 5 unit tests.
+
 ## [0.2.1] — 2026-04-30
 
 ### Fixed

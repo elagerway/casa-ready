@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { renderContext } from '../zap-context.js';
+import { renderContext, deriveOriginScope } from '../zap-context.js';
 
 const TEMPLATE_FILENAME = 'supabase-jwt-context-template.xml';
 const SCRIPT_FILENAME = 'supabase-jwt-script.js';
@@ -18,6 +18,9 @@ export async function getContext({ target, credentials, configsDir, runId: _runI
   const contextXml = renderContext(template, {
     contextName: target.name,
     targetUrl: target.url,
+    // Origin-scoped includregex so the loginUrl path /auth/v1/... is in scope
+    // alongside the targetUrl path /functions/v1 (v0.2.2 fix).
+    originScope: deriveOriginScope(target.url),
     loginUrl: target.auth.loginUrl,
     apiKey: target.auth.apiKey,
     refreshSeconds: target.auth.refreshSeconds || DEFAULT_REFRESH_SECONDS,
