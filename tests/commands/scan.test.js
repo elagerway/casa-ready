@@ -5,7 +5,7 @@ import { rm } from 'node:fs/promises';
 import { runScan } from '../../cli/commands/scan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.js');
+const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.yml');
 
 function makeDeps(overrides = {}) {
   return {

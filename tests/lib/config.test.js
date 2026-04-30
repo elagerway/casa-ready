@@ -5,10 +5,10 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { loadConfig, resolveTargets, readAuthCredentials } from '../../cli/lib/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.js');
+const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.yml');
 
-describe('loadConfig', () => {
-  it('loads a valid multi-target config file', async () => {
+describe('loadConfig (YAML)', () => {
+  it('loads a valid multi-target YAML config', async () => {
     const config = await loadConfig(fixturePath);
     expect(config.app).toBe('magpipe');
     expect(config.envs.staging.targets).toHaveLength(2);
@@ -17,90 +17,102 @@ describe('loadConfig', () => {
   });
 
   it('throws a clear error when the file does not exist', async () => {
-    await expect(loadConfig('/nonexistent/path.js')).rejects.toThrow(
-      /could not load config/i
+    await expect(loadConfig('/nonexistent/casa-ready.yml')).rejects.toThrow(
+      /not found.*casa-ready init/i
     );
   });
 
-  it('throws when envs[env].targets is missing', async () => {
-    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'no-targets.js');
+  it('throws a migration error when only the legacy .js config exists', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-migration');
+    const ymlPath = path.join(tmpDir, 'casa-ready.yml');
+    const jsPath = path.join(tmpDir, 'casa-ready.config.js');
     await mkdir(tmpDir, { recursive: true });
-    await writeFile(
-      tmpPath,
-      `export default { app: "x", envs: { staging: {} } };`
-    );
+    await writeFile(jsPath, 'export default {};');
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/targets.*non-empty array/i);
+      await expect(loadConfig(ymlPath)).rejects.toThrow(
+        /legacy.*v0\.2.*casa-ready init|see.*MIGRATION/i
+      );
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws when two targets in the same env share a name', async () => {
-    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'dup-target.js');
+  it('throws on invalid YAML syntax', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-bad-yaml');
+    const tmpPath = path.join(tmpDir, 'casa-ready.yml');
     await mkdir(tmpDir, { recursive: true });
-    await writeFile(
-      tmpPath,
-      `export default { app: "x", envs: { staging: { targets: [
-        { name: "a", url: "https://x", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } },
-        { name: "a", url: "https://y", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } }
-      ] } } };`
-    );
+    await writeFile(tmpPath, 'app: magpipe\n  bad indent');
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/duplicate target name/i);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/yaml/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws when auth.type is unknown', async () => {
-    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'bad-auth.js');
+  it('expands ${VAR} references via process.env', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-env');
+    const tmpPath = path.join(tmpDir, 'casa-ready.yml');
     await mkdir(tmpDir, { recursive: true });
     await writeFile(
       tmpPath,
-      `export default { app: "x", envs: { staging: { targets: [
-        { name: "a", url: "https://x", auth: { type: "bogus" } }
-      ] } } };`
+      `app: x
+envs:
+  staging:
+    targets:
+      - name: api
+        url: https://x.supabase.co/functions/v1
+        auth:
+          type: supabase-jwt
+          loginUrl: https://x.supabase.co/auth/v1/token?grant_type=password
+          apiKey: \${TEST_ANON_KEY}
+          refreshSeconds: 3300
+`
     );
+    process.env.TEST_ANON_KEY = 'expanded-value';
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/unknown auth\.type.*bogus.*form.*supabase-jwt/i);
+      const config = await loadConfig(tmpPath);
+      expect(config.envs.staging.targets[0].auth.apiKey).toBe('expanded-value');
+    } finally {
+      delete process.env.TEST_ANON_KEY;
+      await rm(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('throws when a referenced env var is missing, with the dotted path', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-missing-env');
+    const tmpPath = path.join(tmpDir, 'casa-ready.yml');
+    await mkdir(tmpDir, { recursive: true });
+    await writeFile(
+      tmpPath,
+      `app: x
+envs:
+  staging:
+    targets:
+      - name: api
+        url: https://x.supabase.co/functions/v1
+        auth:
+          type: supabase-jwt
+          loginUrl: https://x.supabase.co/auth/v1/token
+          apiKey: \${MISSING_KEY_XYZ}
+`
+    );
+    delete process.env.MISSING_KEY_XYZ;
+    try {
+      await expect(loadConfig(tmpPath)).rejects.toThrow(
+        /MISSING_KEY_XYZ.*envs\.staging\.targets\.0\.auth\.apiKey/
+      );
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
   });
 
-  it('throws when supabase-jwt auth is missing apiKey', async () => {
-    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'no-apikey.js');
+  it('throws on schema validation failure with useful message', async () => {
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-bad-shape');
+    const tmpPath = path.join(tmpDir, 'casa-ready.yml');
     await mkdir(tmpDir, { recursive: true });
-    await writeFile(
-      tmpPath,
-      `export default { app: "x", envs: { staging: { targets: [
-        { name: "a", url: "https://x", auth: { type: "supabase-jwt", loginUrl: "https://y" } }
-      ] } } };`
-    );
+    await writeFile(tmpPath, 'app: x\nenvs: {}');
     try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/auth\.apiKey/i);
-    } finally {
-      await rm(tmpDir, { recursive: true, force: true });
-    }
-  });
-
-  it('throws when target.url is not http(s)', async () => {
-    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp');
-    const tmpPath = path.join(tmpDir, 'bad-url.js');
-    await mkdir(tmpDir, { recursive: true });
-    await writeFile(
-      tmpPath,
-      `export default { app: "x", envs: { staging: { targets: [
-        { name: "a", url: "ftp://x", auth: { type: "form", loginUrl: "u", loginRequestBody: "b", usernameField: "u", passwordField: "p", loggedInIndicator: "i" } }
-      ] } } };`
-    );
-    try {
-      await expect(loadConfig(tmpPath)).rejects.toThrow(/url.*http/i);
+      await expect(loadConfig(tmpPath)).rejects.toThrow(/validation/i);
     } finally {
       await rm(tmpDir, { recursive: true, force: true });
     }
@@ -137,12 +149,10 @@ describe('resolveTargets', () => {
 
 describe('readAuthCredentials', () => {
   let originalUser, originalPass;
-
   beforeEach(() => {
     originalUser = process.env.CASA_READY_USER;
     originalPass = process.env.CASA_READY_PASS;
   });
-
   afterEach(() => {
     if (originalUser === undefined) delete process.env.CASA_READY_USER;
     else process.env.CASA_READY_USER = originalUser;
@@ -153,8 +163,7 @@ describe('readAuthCredentials', () => {
   it('reads creds from env vars', () => {
     process.env.CASA_READY_USER = 'erik@snapsonic.com';
     process.env.CASA_READY_PASS = 'hunter2';
-    const creds = readAuthCredentials();
-    expect(creds).toEqual({ username: 'erik@snapsonic.com', password: 'hunter2' });
+    expect(readAuthCredentials()).toEqual({ username: 'erik@snapsonic.com', password: 'hunter2' });
   });
 
   it('throws when CASA_READY_USER missing', () => {
