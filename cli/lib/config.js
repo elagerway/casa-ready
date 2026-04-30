@@ -1,123 +1,62 @@
 import { readFile, access } from 'node:fs/promises';
+import path from 'node:path';
+import yaml from 'js-yaml';
+import { ConfigSchema } from './schema.js';
+import { expandEnv } from './env-expand.js';
 
-const KNOWN_AUTH_TYPES = ['form', 'supabase-jwt'];
+const LEGACY_JS_FILENAME = 'casa-ready.config.js';
+const YAML_FILENAME = 'casa-ready.yml';
 
-const REQUIRED_FORM_AUTH_FIELDS = [
-  'loginUrl',
-  'loginRequestBody',
-  'usernameField',
-  'passwordField',
-  'loggedInIndicator',
-];
-
-const REQUIRED_SUPABASE_AUTH_FIELDS = ['loginUrl', 'apiKey'];
-
+/**
+ * Load and validate a YAML config from disk.
+ *
+ * Pipeline: read file → parse YAML → expand ${VAR} → validate via Zod.
+ * Each stage emits a targeted error so users land directly on the right
+ * line / variable / field.
+ *
+ * If the YAML file is absent but a legacy v0.2.x `casa-ready.config.js` sits
+ * next to it, we surface a migration error pointing at `casa-ready init`
+ * rather than the generic not-found message.
+ */
 export async function loadConfig(configPath) {
   let source;
   try {
     await access(configPath);
     source = await readFile(configPath, 'utf8');
   } catch {
-    throw new Error(`Could not load config: file not found at ${configPath}`);
+    const dir = path.dirname(configPath);
+    const legacyPath = path.join(dir, LEGACY_JS_FILENAME);
+    try {
+      await access(legacyPath);
+    } catch {
+      throw new Error(
+        `Could not load config: ${YAML_FILENAME} not found at ${configPath}. ` +
+          `Run \`casa-ready init\` to generate one.`
+      );
+    }
+    throw new Error(
+      `Found legacy v0.2.x config at ${legacyPath}. CASA Ready v0.3 uses YAML (${YAML_FILENAME}). ` +
+        `Run \`casa-ready init\` to generate one, or see MIGRATION.md.`
+    );
   }
 
-  let mod;
+  let parsed;
   try {
-    // Import via a data: URL so that Vite/Vitest's module resolver never sees
-    // a file-system path that contains encoded characters (e.g. %20 for spaces).
-    // Trade-off: the user's config file cannot use relative imports
-    // (`import x from './helper.js'`) — data: URLs have no base for resolution.
-    const dataUrl = 'data:text/javascript;charset=utf-8,' + encodeURIComponent(source);
-    mod = await import(/* @vite-ignore */ dataUrl);
+    parsed = yaml.load(source);
   } catch (err) {
-    if (/Invalid relative URL|base scheme is not hierarchical/i.test(err.message)) {
-      throw new Error(
-        `Could not load config at ${configPath}: relative imports are not supported in config files. Inline the imported values directly.`
-      );
-    }
-    throw new Error(`Could not load config at ${configPath}: ${err.message}`);
+    throw new Error(`Invalid YAML in ${configPath}: ${err.message}`);
   }
 
-  const config = mod.default;
-  validateConfig(config);
-  return config;
-}
+  const expanded = expandEnv(parsed);
 
-function validateConfig(config) {
-  if (!config || typeof config !== 'object') {
-    throw new Error('Config: default export must be an object');
+  const result = ConfigSchema.safeParse(expanded);
+  if (!result.success) {
+    const issues = result.error.issues
+      .map((iss) => `  - ${iss.path.join('.') || '(root)'}: ${iss.message}`)
+      .join('\n');
+    throw new Error(`Config validation failed in ${configPath}:\n${issues}`);
   }
-  if (!config.app || typeof config.app !== 'string') {
-    throw new Error('Config: "app" must be a non-empty string');
-  }
-  if (!config.envs || typeof config.envs !== 'object' || Array.isArray(config.envs)) {
-    throw new Error('Config: "envs" must be an object mapping env names to env definitions');
-  }
-  for (const [envName, envDef] of Object.entries(config.envs)) {
-    validateEnv(envName, envDef);
-  }
-}
-
-function validateEnv(envName, envDef) {
-  if (!envDef || typeof envDef !== 'object') {
-    throw new Error(`Config: "envs.${envName}" must be an object`);
-  }
-  if (!Array.isArray(envDef.targets) || envDef.targets.length === 0) {
-    throw new Error(`Config: "envs.${envName}.targets" must be a non-empty array`);
-  }
-  const seenNames = new Set();
-  for (const target of envDef.targets) {
-    validateTarget(envName, target);
-    if (seenNames.has(target.name)) {
-      throw new Error(`Config: duplicate target name '${target.name}' in env ${envName}`);
-    }
-    seenNames.add(target.name);
-  }
-}
-
-function validateTarget(envName, target) {
-  if (!target || typeof target !== 'object') {
-    throw new Error(`Config: target in envs.${envName}.targets must be an object`);
-  }
-  if (!target.name || typeof target.name !== 'string') {
-    throw new Error(`Config: target.name in envs.${envName}.targets must be a non-empty string`);
-  }
-  if (!target.url || typeof target.url !== 'string' || !/^https?:\/\//.test(target.url)) {
-    throw new Error(
-      `Config: target.url for '${target.name}' in env ${envName} must be a non-empty http(s) URL`
-    );
-  }
-  if (!target.auth || typeof target.auth !== 'object') {
-    throw new Error(
-      `Config: target.auth for '${target.name}' in env ${envName} must be an object`
-    );
-  }
-  validateAuth(envName, target);
-}
-
-function validateAuth(envName, target) {
-  const { auth, name } = target;
-  if (!KNOWN_AUTH_TYPES.includes(auth.type)) {
-    throw new Error(
-      `Config: unknown auth.type '${auth.type}' for target '${name}' in env ${envName} — must be one of: ${KNOWN_AUTH_TYPES.join(', ')}`
-    );
-  }
-  const required =
-    auth.type === 'form' ? REQUIRED_FORM_AUTH_FIELDS : REQUIRED_SUPABASE_AUTH_FIELDS;
-  for (const field of required) {
-    if (!auth[field]) {
-      throw new Error(
-        `Config: auth.${field} is required for target '${name}' (auth.type=${auth.type}) in env ${envName}`
-      );
-    }
-  }
-  if (auth.type === 'supabase-jwt' && auth.refreshSeconds !== undefined) {
-    if (!Number.isInteger(auth.refreshSeconds) || auth.refreshSeconds <= 0) {
-      throw new Error(
-        `Config: auth.refreshSeconds for '${name}' must be a positive integer (got ${auth.refreshSeconds})`
-      );
-    }
-  }
+  return result.data;
 }
 
 export function resolveTargets(config, envName, filterName) {
@@ -127,8 +66,7 @@ export function resolveTargets(config, envName, filterName) {
     throw new Error(`Unknown env: ${envName}. Known envs: ${known}`);
   }
   if (!filterName) {
-    // Return a shallow copy so callers can't mutate the live config (e.g.
-    // splice/push corrupting the next call's resolution).
+    // Return a shallow copy so callers can't mutate the live config.
     return envDef.targets.slice();
   }
   const filtered = envDef.targets.filter((t) => t.name === filterName);

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/elagerway/casa-ready/main/schemas/casa-ready.schema.json
+app: magpipe
+
+envs:
+  staging:
+    targets:
+      - name: spa
+        url: https://staging.example.com
+        auth:
+          type: form
+          loginUrl: https://staging.example.com/login
+          loginRequestBody: 'email={%username%}&password={%password%}'
+          usernameField: email
+          passwordField: password
+          loggedInIndicator: 'Sign out|/dashboard'
+
+      - name: api
+        url: https://x.supabase.co/functions/v1
+        auth:
+          type: supabase-jwt
+          loginUrl: https://x.supabase.co/auth/v1/token?grant_type=password
+          apiKey: public-anon-key-here
+          refreshSeconds: 3300
+
+  prod:
+    targets:
+      - name: spa
+        url: https://example.com
+        auth:
+          type: form
+          loginUrl: https://example.com/login
+          loginRequestBody: 'email={%username%}&password={%password%}'
+          usernameField: email
+          passwordField: password
+          loggedInIndicator: 'Sign out|/dashboard'
