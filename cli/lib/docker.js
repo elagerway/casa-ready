@@ -23,12 +23,14 @@ export function buildZapArgs({
   configsDir,
   outputDir,
   contextPath,
+  scriptPath = null,
 }) {
   const script = FLAVOR_TO_SCRIPT[flavor];
   if (!script) {
     throw new Error(`Unknown scan flavor: ${flavor}`);
   }
-  return [
+
+  const args = [
     'run',
     '--rm',
     '-v',
@@ -37,6 +39,17 @@ export function buildZapArgs({
     `${outputDir}:/zap/wrk:rw`,
     '-v',
     `${contextPath}:${ZAP_CONTEXT_PATH}:ro`,
+  ];
+
+  // Mount the auth script (if any) into a known location inside the container.
+  let containerScriptPath = null;
+  if (scriptPath) {
+    const filename = scriptPath.split('/').pop();
+    containerScriptPath = `/zap/configs/${filename}`;
+    args.push('-v', `${scriptPath}:${containerScriptPath}:ro`);
+  }
+
+  args.push(
     ZAP_IMAGE,
     script,
     '-t',
@@ -50,8 +63,24 @@ export function buildZapArgs({
     '-x',
     'results.xml',
     '-r',
-    'results.html',
-  ];
+    'results.html'
+  );
+
+  // Register the auth script with ZAP via -z config so the context's
+  // <script> reference resolves at scan time. The script's "name" inside
+  // ZAP's script registry must match the <script><name> in the context XML
+  // (currently 'supabase-jwt-auth', set by the supabase-jwt context template).
+  if (scriptPath) {
+    // TODO(V1.2): when a 2nd script-based auth ships, parameterize the
+    // script name (currently hardcoded 'supabase-jwt-auth') by passing it
+    // through from the auth module alongside scriptPath.
+    args.push(
+      '-z',
+      `script.load(name='supabase-jwt-auth',type='authentication',engine='Oracle Nashorn',file='${containerScriptPath}')`
+    );
+  }
+
+  return args;
 }
 
 export function runZap(args, { spawnFn = nodeSpawn } = {}) {

@@ -30,6 +30,14 @@ describe('summarize', () => {
     expect(md).toMatch(/no findings/i);
   });
 
+  it('includes target name in the title when options.targetName is provided', () => {
+    const md = summarize(
+      { site: [{ '@name': 'x', alerts: [] }] },
+      { targetName: 'api' }
+    );
+    expect(md).toMatch(/^# CASA Ready Scan Summary — api/m);
+  });
+
   it('handles results.json with no site array gracefully', () => {
     const md = summarize({});
     expect(md).toMatch(/no findings/i);

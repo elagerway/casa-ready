@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, afterAll } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { rm } from 'node:fs/promises';
 import { runScan } from '../../cli/commands/scan.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const fixturePath = path.join(__dirname, '..', 'fixtures', 'sample-config.js');
+const fixturePath = path.join(__dirname, '..', 'fixtures', 'multi-target-config.js');
 
 function makeDeps(overrides = {}) {
   return {
@@ -13,14 +14,19 @@ function makeDeps(overrides = {}) {
     writeSummary: vi.fn().mockResolvedValue(),
     writeContext: vi.fn().mockResolvedValue('/tmp/casa-ctx-test.xml'),
     deleteContext: vi.fn().mockResolvedValue(),
-    readContextTemplate: vi.fn().mockResolvedValue('<x>{{contextName}}</x>'),
-    mkdirOutput: vi.fn().mockResolvedValue('/abs/scan-output/staging/test'),
+    getAuthContext: vi.fn().mockResolvedValue({
+      contextXml: '<context>fake</context>',
+      scriptPath: null,
+    }),
+    mkdirOutput: vi.fn().mockImplementation(async (envName, ts, targetName) =>
+      `/abs/scan-output/${envName}/${ts}/${targetName}`
+    ),
     now: () => '2026-04-29T12-00-00Z',
     ...overrides,
   };
 }
 
-describe('runScan', () => {
+describe('runScan (multi-target)', () => {
   let originalUser, originalPass;
 
   beforeEach(() => {
@@ -37,16 +43,37 @@ describe('runScan', () => {
     else process.env.CASA_READY_PASS = originalPass;
   });
 
-  it('runs a staging scan by default', async () => {
+  // Even tests that mock `mkdirOutput` still trigger the top-level `mkdir`
+  // for the env+timestamp aggregate dir (it's not dep-injected). Clean up
+  // after every test so leaked dirs don't accumulate or create order
+  // dependencies between tests.
+  afterAll(async () => {
+    await rm(path.join(process.cwd(), 'scan-output'), {
+      recursive: true,
+      force: true,
+    });
+  });
+
+  it('runs all targets in the env when --target is not provided', async () => {
     const deps = makeDeps();
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(deps.runZap).toHaveBeenCalledOnce();
-    expect(result.outputDir).toBe('/abs/scan-output/staging/test');
-    expect(result.summaryPath).toMatch(/summary\.md$/);
-    expect(result.txtPath).toMatch(/results\.txt$/);
+    expect(deps.runZap).toHaveBeenCalledTimes(2); // spa + api
+    expect(result.exitCode).toBe(0);
+    expect(result.targets).toHaveLength(2);
+    expect(result.failures).toHaveLength(0);
+  });
+
+  it('runs only the named target when --target is provided', async () => {
+    const deps = makeDeps();
+    const result = await runScan(
+      { configPath: fixturePath, env: 'staging', target: 'spa', confirmProd: false, flavor: 'casa' },
+      deps
+    );
+    expect(deps.runZap).toHaveBeenCalledTimes(1);
+    expect(result.targets[0].name).toBe('spa');
   });
 
   it('rejects --env prod without --confirm-prod', async () => {
@@ -66,110 +93,88 @@ describe('runScan', () => {
       { configPath: fixturePath, env: 'prod', confirmProd: true, flavor: 'casa' },
       deps
     );
-    expect(deps.runZap).toHaveBeenCalledOnce();
+    expect(deps.runZap).toHaveBeenCalledTimes(1); // prod fixture has 1 target
   });
 
-  it('uses zap-baseline.py when flavor=baseline', async () => {
+  it('uses zap-baseline.py when flavor=baseline (per-call)', async () => {
     const deps = makeDeps();
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'baseline' },
       deps
     );
-    const args = deps.runZap.mock.calls[0][0];
-    expect(args).toContain('zap-baseline.py');
+    for (const call of deps.runZap.mock.calls) {
+      expect(call[0]).toContain('zap-baseline.py');
+    }
   });
 
-  it('exits 0 even when findings exist, AND writes both summary.md and results.txt', async () => {
+  it('continues to next target when one target fails (best-effort)', async () => {
     const deps = makeDeps({
-      readResultsJson: vi.fn().mockResolvedValue({
-        site: [
-          {
-            '@name': 'x',
-            alerts: [
-              {
-                alert: 'A',
-                riskcode: '3',
-                confidence: '3',
-                cweid: '79',
-                count: '1',
-                instances: [],
-                solution: '',
-              },
-            ],
-          },
-        ],
-      }),
+      runZap: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('docker exploded on spa'))
+        .mockResolvedValueOnce({ exitCode: 0 }),
     });
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(result.exitCode).toBe(0);
-    expect(deps.writeSummary).toHaveBeenCalledTimes(2); // summary.md + results.txt
+    expect(deps.runZap).toHaveBeenCalledTimes(2);
+    expect(result.exitCode).toBe(1); // any failure → non-zero
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].name).toBe('spa');
+    expect(result.failures[0].error.message).toMatch(/docker exploded/);
+    expect(result.targets).toHaveLength(2); // both attempted
   });
 
-  it('cleans up the temp context file on success', async () => {
+  it('cleans up the temp context file for each target on success', async () => {
     const deps = makeDeps();
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(deps.deleteContext).toHaveBeenCalledWith('/tmp/casa-ctx-test.xml');
-    expect(deps.deleteContext).toHaveBeenCalledTimes(1);
+    expect(deps.deleteContext).toHaveBeenCalledTimes(2);
   });
 
-  it('cleans up the temp context file even when runZap rejects (credential leak prevention)', async () => {
+  it('cleans up the temp context file even when a target fails', async () => {
     const deps = makeDeps({
-      runZap: vi.fn().mockRejectedValue(new Error('docker exploded')),
+      runZap: vi.fn().mockRejectedValue(new Error('boom')),
     });
-    await expect(
-      runScan(
-        { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
-        deps
-      )
-    ).rejects.toThrow(/docker exploded/);
-    expect(deps.deleteContext).toHaveBeenCalledWith('/tmp/casa-ctx-test.xml');
+    await runScan(
+      { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
+      deps
+    );
+    // 2 targets, both failed, both cleaned up
+    expect(deps.deleteContext).toHaveBeenCalledTimes(2);
   });
 
-  it('default mkdirOutput resolves under process.cwd(), not the install dir', async () => {
-    // Regression test for the v0.1.0 final-review critical:
-    // PROJECT_ROOT (= install location) is wrong for global installs and
-    // for node_modules-installed devDeps; only cwd is reliable.
-    let capturedDir = null;
-    const deps = makeDeps({
-      mkdirOutput: undefined, // force the production default
-    });
-    // Spy on the real mkdir behavior by hooking deeper: we can't easily
-    // intercept the default mkdirOutput closure, so we run runScan with
-    // a doomed runZap that rejects right after mkdirOutput is called,
-    // then read the directory path from the (still-mocked) deleteContext call
-    // — actually simpler: assert via the result.outputDir on a successful run.
-    deps.mkdirOutput = undefined;
-    deps.runZap = vi.fn().mockResolvedValue({ exitCode: 0 });
+  it('writes a top-level summary with per-target sections', async () => {
+    const deps = makeDeps();
+    await runScan(
+      { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
+      deps
+    );
+    // Per-target writeSummary calls: each target writes summary.md + results.txt
+    // = 4 per-target writes. Plus the 2 top-level (summary.md + results.txt) = 6.
+    expect(deps.writeSummary).toHaveBeenCalledTimes(6);
+    // Verify the top-level calls go to the env+timestamp dir, not a per-target subdir
+    const topLevelCalls = deps.writeSummary.mock.calls.filter(
+      ([p]) => !p.includes('/spa/') && !p.includes('/api/')
+    );
+    expect(topLevelCalls).toHaveLength(2);
+  });
+
+  it('default mkdirOutput resolves under process.cwd() per target subdir', async () => {
+    const deps = makeDeps({ mkdirOutput: undefined });
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(result.outputDir.startsWith(process.cwd())).toBe(true);
-    expect(result.outputDir).toContain('scan-output/staging/');
-    // Cleanup: the test created a real timestamped directory under cwd
+    for (const target of result.targets) {
+      expect(target.outputDir.startsWith(process.cwd())).toBe(true);
+      expect(target.outputDir).toMatch(/scan-output\/staging\/.*\/(spa|api)$/);
+    }
+    // Cleanup the real dirs
     const { rm } = await import('node:fs/promises');
     await rm(path.join(process.cwd(), 'scan-output'), { recursive: true, force: true });
-  });
-
-  it('surfaces a useful error when readResultsJson fails (e.g. ZAP crashed)', async () => {
-    const deps = makeDeps({
-      readResultsJson: vi.fn().mockRejectedValue(
-        new Error('Could not read ZAP results at /abs/scan-output/staging/test/results.json: ENOENT, no such file or directory. This usually means the ZAP scan exited before writing results.json — check the container logs above.')
-      ),
-    });
-    await expect(
-      runScan(
-        { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
-        deps
-      )
-    ).rejects.toThrow(/scan exited before writing results\.json/);
-    // Cleanup must still happen on this failure path
-    expect(deps.deleteContext).toHaveBeenCalled();
   });
 });
