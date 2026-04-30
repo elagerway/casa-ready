@@ -25,7 +25,7 @@ describe('supabase-jwt auth getContext', () => {
     expect(result.contextXml).toContain('<name>api</name>');
     // Origin-scoped includregex (v0.2.2 fix) — covers the whole host so the
     // /auth/v1/token loginUrl is in scope alongside the /functions/v1 target.
-    expect(result.contextXml).toContain('^https://x\\.supabase\\.co/.*');
+    expect(result.contextXml).toContain('^https://x\\.supabase\\.co(/.*)?$');
     expect(result.contextXml).toContain('https://x.supabase.co/auth/v1/token?grant_type=password');
     expect(result.contextXml).toContain('public-anon-key-xyz');
     expect(result.contextXml).toContain('<pollfreq>3300</pollfreq>');

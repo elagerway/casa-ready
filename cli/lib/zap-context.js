@@ -24,13 +24,17 @@ export function renderContext(template, values) {
  * host + port) of the given URL. Used in <incregexes> so that loginUrls on a
  * different path of the same host are still in scope.
  *
- * Example:
- *   'https://x.supabase.co/functions/v1' → '^https://x\\.supabase\\.co/.*'
- *   'http://host.docker.internal:3000/api' → '^http://host\\.docker\\.internal:3000/.*'
+ * The path is OPTIONAL in the produced regex — a bare-host targetUrl like
+ * `https://magpipe.ai` (no trailing slash, no path) must still be in scope,
+ * otherwise ZAP's spider rejects the seed URL with URL_NOT_IN_CONTEXT.
  *
- * Without this, a target like /functions/v1 with a loginUrl at /auth/v1/token
- * would have ZAP's spider reject the URL with URL_NOT_IN_CONTEXT — discovered
- * by the v0.2.1 dogfood scan.
+ * Example:
+ *   'https://x.supabase.co/functions/v1' → '^https://x\\.supabase\\.co(/.*)?$'
+ *   'http://host.docker.internal:3000'   → '^http://host\\.docker\\.internal:3000(/.*)?$'
+ *
+ * The end anchor + `(/.*)?` (optional path starting with `/`) prevents host
+ * smuggling like `host.docker.internal:3000evil.com` — a `.*` without the
+ * `/` anchor would have matched it.
  */
 export function deriveOriginScope(url) {
   let parsed;
@@ -42,7 +46,7 @@ export function deriveOriginScope(url) {
   // Escape regex metachars in the host (mostly `.`; colons in host:port are
   // literal in regex).
   const escapedHost = parsed.host.replace(/[.\\+*?^$()[\]{}|]/g, '\\$&');
-  return `^${parsed.protocol}//${escapedHost}/.*`;
+  return `^${parsed.protocol}//${escapedHost}(/.*)?$`;
 }
 
 function xmlEscape(str) {

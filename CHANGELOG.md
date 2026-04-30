@@ -4,6 +4,15 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] — 2026-04-30
+
+### Fixed
+- **`deriveOriginScope` now matches bare-host URLs.** v0.2.2 produced `^<scheme>://<host>/.*` which required a path — so a target with `url: 'https://magpipe.ai'` (no path) was rejected by ZAP's spider with `URL_NOT_IN_CONTEXT`. Now produces `^<scheme>://<host>(/.*)?$` — path is optional, so bare-host URLs and pathful URLs both resolve. End-anchored to prevent host smuggling (`magpipe.aievil.com`-style suffixes).
+- Added two new `deriveOriginScope` tests: bare-host URLs (`https://magpipe.ai`) match correctly; host-smuggling attempts are rejected.
+
+### Notes
+- Surfaced by the v0.2.2 dogfood rerun: juice-shop's bare-host frontend target then failed (where v0.2.1's frontend had succeeded only because the broken `{{targetUrl}}.*` happened to be permissive). Two consecutive dogfood iterations caught two related-but-distinct regex bugs — exactly what dogfood-then-patch is for.
+
 ## [0.2.2] — 2026-04-30
 
 ### Fixed

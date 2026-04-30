@@ -85,20 +85,43 @@ describe('renderContext', () => {
 describe('deriveOriginScope', () => {
   it('derives an origin-scoped includregex for an https URL with a path', () => {
     expect(deriveOriginScope('https://x.supabase.co/functions/v1')).toBe(
-      '^https://x\\.supabase\\.co/.*'
+      '^https://x\\.supabase\\.co(/.*)?$'
     );
   });
 
   it('derives an origin-scoped includregex for an http URL with a port', () => {
     expect(deriveOriginScope('http://host.docker.internal:3000/api')).toBe(
-      '^http://host\\.docker\\.internal:3000/.*'
+      '^http://host\\.docker\\.internal:3000(/.*)?$'
     );
+  });
+
+  it('handles bare-host URLs (no path, no trailing slash) — v0.2.3 fix', () => {
+    // Without the optional-path group, ZAP's spider rejects the seed URL
+    // because `https://magpipe.ai` doesn't match `https://magpipe\.ai/.*`
+    // (the trailing `/.*` requires content after the slash).
+    expect(deriveOriginScope('https://magpipe.ai')).toBe(
+      '^https://magpipe\\.ai(/.*)?$'
+    );
+    // Verify the produced regex actually matches the bare URL.
+    const re = new RegExp(deriveOriginScope('https://magpipe.ai'));
+    expect(re.test('https://magpipe.ai')).toBe(true);
+    expect(re.test('https://magpipe.ai/')).toBe(true);
+    expect(re.test('https://magpipe.ai/dashboard')).toBe(true);
+  });
+
+  it('rejects host-smuggling attempts (suffix after the port/host)', () => {
+    // A regex without `(/.*)?$` — e.g. `^https://magpipe\.ai.*` — would
+    // accept `https://magpipe.aievil.com` as in-scope. Origin anchoring
+    // prevents that.
+    const re = new RegExp(deriveOriginScope('https://magpipe.ai'));
+    expect(re.test('https://magpipe.aievil.com')).toBe(false);
+    expect(re.test('https://magpipe.ai.evil.com')).toBe(false);
   });
 
   it('strips query strings and fragments (only origin matters for scope)', () => {
     expect(
       deriveOriginScope('https://magpipe.ai/login?next=/dashboard#x')
-    ).toBe('^https://magpipe\\.ai/.*');
+    ).toBe('^https://magpipe\\.ai(/.*)?$');
   });
 
   it('escapes regex meta characters in the host', () => {
@@ -106,7 +129,7 @@ describe('deriveOriginScope', () => {
     // regex builder must not break if they show up. URL constructor only
     // accepts a small set of host chars but `.` definitely matters.
     const result = deriveOriginScope('https://api.example.com/foo');
-    expect(result).toBe('^https://api\\.example\\.com/.*');
+    expect(result).toBe('^https://api\\.example\\.com(/.*)?$');
   });
 
   it('throws on an invalid URL', () => {
