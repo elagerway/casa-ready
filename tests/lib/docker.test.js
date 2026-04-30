@@ -40,35 +40,62 @@ describe('buildZapArgs', () => {
     expect(args).not.toContain('-c');
   });
 
-  it('mounts auth script and registers it via -z when scriptPath is provided', () => {
+  it('emits -z replacer config when replacerHeaders is provided (v0.2.4 supabase-jwt path)', () => {
     const args = buildZapArgs({
       flavor: 'casa',
       targetUrl: 'https://api.example.com',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/scan-output/staging/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-supabase.xml',
-      scriptPath: '/abs/configs/zap/supabase-jwt-script.js',
+      replacerHeaders: [
+        { name: 'Authorization', value: 'Bearer eyJhbGciOiJIUzI1NiJ9.x.y' },
+        { name: 'apikey', value: 'public-anon-xyz' },
+      ],
     });
-    // The script mount appears as a discrete array element (use toContain on
-    // the array, not args.join(' ').toContain — paths could contain spaces).
-    expect(args).toContain(
-      '/abs/configs/zap/supabase-jwt-script.js:/zap/configs/supabase-jwt-script.js:ro'
-    );
-    // The script-mount -v flag must appear BEFORE the image name (Docker side).
-    const scriptMountIdx = args.indexOf(
-      '/abs/configs/zap/supabase-jwt-script.js:/zap/configs/supabase-jwt-script.js:ro'
-    );
-    const imageIdx = args.indexOf('zaproxy/zap-stable');
-    expect(scriptMountIdx).toBeLessThan(imageIdx);
-    // The -z config registers the script with ZAP under the name
-    // 'supabase-jwt-auth' (matching the context's <script><name>). It must
-    // appear AFTER the image name (container side, passed to ZAP).
+    // The -z flag carries ZAP daemon options. zap-baseline.py shlex-splits
+    // its value and appends each token to the daemon CLI, so values that
+    // contain spaces (Authorization: Bearer <jwt>) must be single-quoted.
     expect(args).toContain('-z');
     const zIdx = args.indexOf('-z');
+    const imageIdx = args.indexOf('zaproxy/zap-stable');
+    // -z and its value go AFTER the image (these are ZAP-side, not Docker-side).
     expect(zIdx).toBeGreaterThan(imageIdx);
-    expect(args[zIdx + 1]).toContain('script.load');
-    expect(args[zIdx + 1]).toContain('supabase-jwt-auth');
-    expect(args[zIdx + 1]).toContain('/zap/configs/supabase-jwt-script.js');
+    const zValue = args[zIdx + 1];
+    expect(zValue).toContain("replacer.full_list(0).matchstr=Authorization");
+    expect(zValue).toContain("replacer.full_list(0).replacement=Bearer eyJhbGciOiJIUzI1NiJ9.x.y");
+    expect(zValue).toContain("replacer.full_list(0).matchtype=REQ_HEADER");
+    expect(zValue).toContain("replacer.full_list(0).enabled=true");
+    expect(zValue).toContain("replacer.full_list(1).matchstr=apikey");
+    expect(zValue).toContain("replacer.full_list(1).replacement=public-anon-xyz");
+    // Multi-token values containing spaces must be single-quoted so shlex
+    // keeps them as one token (not split on the space inside "Bearer X").
+    expect(zValue).toContain("'replacer.full_list(0).replacement=Bearer eyJhbGciOiJIUzI1NiJ9.x.y'");
+  });
+
+  it('omits -z entirely when no replacerHeaders are passed (form-auth path)', () => {
+    const args = buildZapArgs({
+      flavor: 'casa',
+      targetUrl: 'https://magpipe.ai',
+      configsDir: '/abs/configs/zap',
+      outputDir: '/abs/scan-output/prod/2026-04-29T12-00-00Z',
+      contextPath: '/tmp/casa-ctx-form.xml',
+    });
+    expect(args).not.toContain('-z');
+  });
+
+  it('safely escapes single quotes in replacer values', () => {
+    const args = buildZapArgs({
+      flavor: 'baseline',
+      targetUrl: 'https://x',
+      configsDir: '/c',
+      outputDir: '/o',
+      contextPath: '/ctx.xml',
+      replacerHeaders: [{ name: 'X-Custom', value: "weird'value" }],
+    });
+    const zIdx = args.indexOf('-z');
+    // Single quote inside a single-quoted shlex token escapes as '\'' .
+    // Lives inside the replacement= value, not the matchstr= value.
+    expect(args[zIdx + 1]).toContain("replacement=weird'\\''value");
   });
 
   it('uses zap-baseline.py for the baseline flavor', () => {

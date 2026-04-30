@@ -142,7 +142,7 @@ async function runOneTarget({
     // instead of aborting the whole run — preserves best-effort semantics.
     outputDir = await mkdirOutput(env, timestamp, target.name);
 
-    const { contextXml, scriptPath } = await getAuthContext({
+    const { contextXml, scriptPath, replacerHeaders } = await getAuthContext({
       target,
       credentials,
       configsDir: CONFIGS_DIR,
@@ -157,6 +157,7 @@ async function runOneTarget({
       outputDir,
       contextPath,
       scriptPath,
+      replacerHeaders,
     });
 
     await runZap(args);

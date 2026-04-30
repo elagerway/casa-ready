@@ -25,6 +25,18 @@ const FLAVOR_TO_SCRIPT = {
  * (`/zap/context.xml`) — this keeps Docker Desktop on macOS happy (which only
  * shares a limited set of host paths) and avoids any : / , characters in the
  * host path breaking the volume mount string.
+ *
+ * `replacerHeaders` (v0.2.4): array of `{ name, value }` static headers to
+ * inject into every in-scope request via ZAP's replacer addon. Used by the
+ * supabase-jwt auth path to attach `Authorization: Bearer <jwt>` and
+ * `apikey: <anon>` after our Node-side login. See the renderReplacerZArg
+ * comment for the shlex-quoting nuance.
+ *
+ * `scriptPath` is preserved for backward compatibility with the form-auth
+ * dispatcher's contract, but is unused as of v0.2.4 — the supabase-jwt path
+ * no longer needs in-ZAP scripts. A future script-based auth would register
+ * via the --hook mechanism, not via the (broken) `-z 'script.load(...)'`
+ * pattern that v0.1–0.2.3 attempted.
  */
 export function buildZapArgs({
   flavor,
@@ -32,7 +44,8 @@ export function buildZapArgs({
   configsDir,
   outputDir,
   contextPath,
-  scriptPath = null,
+  scriptPath: _scriptPath = null,
+  replacerHeaders = null,
 }) {
   const script = FLAVOR_TO_SCRIPT[flavor];
   if (!script) {
@@ -49,14 +62,6 @@ export function buildZapArgs({
     '-v',
     `${contextPath}:${ZAP_CONTEXT_PATH}:ro`,
   ];
-
-  // Mount the auth script (if any) into a known location inside the container.
-  let containerScriptPath = null;
-  if (scriptPath) {
-    const filename = scriptPath.split('/').pop();
-    containerScriptPath = `/zap/configs/${filename}`;
-    args.push('-v', `${scriptPath}:${containerScriptPath}:ro`);
-  }
 
   // NOTE: V1 shipped with -c /zap/configs/casa-tier2.policy, but the file
   // we vendored is XML (ZAP GUI's policy export format). The -c flag for
@@ -79,21 +84,48 @@ export function buildZapArgs({
     'results.html'
   );
 
-  // Register the auth script with ZAP via -z config so the context's
-  // <script> reference resolves at scan time. The script's "name" inside
-  // ZAP's script registry must match the <script><name> in the context XML
-  // (currently 'supabase-jwt-auth', set by the supabase-jwt context template).
-  if (scriptPath) {
-    // TODO(V1.2): when a 2nd script-based auth ships, parameterize the
-    // script name (currently hardcoded 'supabase-jwt-auth') by passing it
-    // through from the auth module alongside scriptPath.
-    args.push(
-      '-z',
-      `script.load(name='supabase-jwt-auth',type='authentication',engine='Oracle Nashorn',file='${containerScriptPath}')`
-    );
+  const replacerZArg = renderReplacerZArg(replacerHeaders);
+  if (replacerZArg) {
+    args.push('-z', replacerZArg);
   }
 
   return args;
+}
+
+/**
+ * Render replacer-rule headers as a single -z value for zap-baseline.py.
+ *
+ * zap-baseline.py shlex-splits the -z value and appends each token to the ZAP
+ * daemon CLI as raw args. So this function must produce a string that, when
+ * shlex-split, yields a clean sequence of `-config key=value` token pairs.
+ * Values that contain spaces (e.g. `Bearer <jwt>`) are wrapped in single
+ * quotes so shlex preserves them as one token; embedded single quotes are
+ * escaped using the canonical sh idiom `'\''`.
+ *
+ * The `enabled=true`, `regex=false`, empty `initiators` (= apply to all),
+ * and `matchtype=REQ_HEADER` keys are required for ZAP to actually fire the
+ * rule. Omitting any of them silently disables injection.
+ */
+function renderReplacerZArg(replacerHeaders) {
+  if (!replacerHeaders || replacerHeaders.length === 0) return null;
+  const parts = [];
+  replacerHeaders.forEach((h, i) => {
+    const prefix = `replacer.full_list(${i})`;
+    parts.push('-config', shellQuoteForShlex(`${prefix}.description=casa-ready-${h.name}`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.enabled=true`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.matchtype=REQ_HEADER`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.matchstr=${h.name}`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.regex=false`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.replacement=${h.value}`));
+    parts.push('-config', shellQuoteForShlex(`${prefix}.initiators=`));
+  });
+  return parts.join(' ');
+}
+
+function shellQuoteForShlex(s) {
+  // Always wrap in single quotes; that survives shlex.split with any value.
+  // Embedded ' becomes '\'' (close, escaped quote, reopen).
+  return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
 
 export function runZap(args, { spawnFn = nodeSpawn } = {}) {

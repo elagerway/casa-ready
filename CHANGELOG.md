@@ -4,6 +4,25 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] — 2026-04-30
+
+### Fixed
+- **`supabase-jwt` auth was silently broken since v0.2.0.** The legacy approach used ZAP's script-based authentication (`<authentication type=4>`) with the JWT login script registered via `-z 'script.load(...)'`. Two latent bugs combined: (1) `zap-baseline.py` `shlex.split`s the `-z` value and appends each token as a CLI arg to the ZAP daemon — `script.load(...)` is not a valid daemon flag, so the script never registered; (2) even if it had, `zap_import_context()` runs BEFORE any `-z` config, so the context's `<script>` reference would always be unresolved. Result: every supabase-jwt scan logged `Failed to load context file /zap/context.xml : internal_error` and crawled completely unauthenticated. The juice-shop dogfood missed it because juice-shop is open — the spider succeeded regardless. Surfaced by the first real Magpipe scan against `${SUPABASE_URL}/functions/v1`: only 6 URLs found, all returning 401.
+
+### Changed
+- **`supabase-jwt` auth now does the Supabase login from Node**, then injects the resulting JWT and the anon `apikey` into every in-scope ZAP request via the replacer addon (`-z -config replacer.full_list(N)...`). The `<authentication>`, `<users>`, `<forceduser>`, `<session>`, and `<authorization>` blocks are gone from `supabase-jwt-context-template.xml` — the context now defines scope only. Auth fails fast in Node with an actionable error if creds/keys are wrong, instead of failing silently mid-scan. Validated end-to-end against Magpipe prod: `/functions/v1` now returns 404 (was 401), confirming the headers flow.
+- `cli/lib/docker.js` `buildZapArgs` accepts a new optional `replacerHeaders: [{ name, value }]` and emits the matching `-z -config replacer.full_list(N).matchstr=… replacement=…` flags. Values containing spaces (e.g. `Bearer <jwt>`) are single-quoted so `shlex.split` keeps them as one token. The legacy `scriptPath` parameter is preserved on the function signature for the dispatcher contract but no longer drives any `-z` output.
+
+### Added
+- `cli/lib/auth/supabase-login.js`: pure Node `loginToSupabase({ loginUrl, apiKey, username, password, fetchFn })`. 5 unit tests covering the success path, 400 (bad creds with `error_description` surfaced), missing `access_token`, non-JSON response, and network errors (which now name the host so URL typos are easy to spot).
+
+### Removed
+- `configs/zap/supabase-jwt-script.js` — the Nashorn auth script is no longer used.
+
+### Notes
+- Architecture rationale: pulling auth into Node eliminates the Nashorn JS dependency and gives V1.2's `init` UX a clean place to validate creds upfront. The static-Bearer approach has a 1-hour expiry window — fine for baseline/full scans (which finish in minutes); long scans would need re-injection (deferred to V1.3+).
+- Discovery is unchanged: ZAP's spider still can't enumerate Edge Function paths from `/functions/v1` since Supabase has no directory listing. Authenticated scans of specific function endpoints work; broad discovery requires an OpenAPI/seed-URL feature (V1.3 concern).
+
 ## [0.2.3] — 2026-04-30
 
 ### Fixed
