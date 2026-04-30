@@ -9,10 +9,10 @@ const FormAuthSchema = z
   .object({
     type: z.literal('form'),
     loginUrl: HttpUrl,
-    loginRequestBody: z.string().min(1),
-    usernameField: z.string().min(1),
-    passwordField: z.string().min(1),
-    loggedInIndicator: z.string().min(1),
+    loginRequestBody: z.string().min(1, 'loginRequestBody is required'),
+    usernameField: z.string().min(1, 'usernameField is required'),
+    passwordField: z.string().min(1, 'passwordField is required'),
+    loggedInIndicator: z.string().min(1, 'loggedInIndicator is required'),
   })
   .strict();
 
@@ -66,7 +66,11 @@ const EnvSchema = z
 export const ConfigSchema = z
   .object({
     app: z.string().min(1, 'app is required'),
-    envs: z.record(z.string(), EnvSchema),
+    envs: z
+      .record(z.string(), EnvSchema)
+      .refine((envs) => Object.keys(envs).length > 0, {
+        message: 'envs must contain at least one environment',
+      }),
   })
   .strict();
 
