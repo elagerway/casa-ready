@@ -24,8 +24,6 @@ describe('buildZapArgs', () => {
       'zap-full-scan.py',
       '-t',
       'https://magpipe.ai',
-      '-c',
-      '/zap/configs/casa-tier2.policy',
       '-n',
       '/zap/context.xml',
       '-J',
@@ -35,6 +33,11 @@ describe('buildZapArgs', () => {
       '-r',
       'results.html',
     ]);
+    // -c is intentionally absent (v0.2.1 fix): the V1 fallback policy file
+    // is XML, not the TSV format zap-baseline.py / zap-full-scan.py expects.
+    // ZAP silently fell back to defaults the entire time. Re-add -c when a
+    // real ADA-tuned TSV policy ships.
+    expect(args).not.toContain('-c');
   });
 
   it('mounts auth script and registers it via -z when scriptPath is provided', () => {
@@ -122,7 +125,7 @@ function fakeChild(eventToFire) {
 }
 
 describe('runZap', () => {
-  it('resolves on exit code 0', async () => {
+  it('resolves on exit code 0 (no findings)', async () => {
     const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [0, null] }));
     await expect(
       runZap(['run', '--rm', 'hello-world'], { spawnFn: fakeSpawn })
@@ -132,10 +135,24 @@ describe('runZap', () => {
     });
   });
 
-  it('rejects on non-zero exit code', async () => {
-    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [2, null] }));
-    await expect(runZap(['run', '--rm', 'x'], { spawnFn: fakeSpawn })).rejects.toThrow(
-      /exited with code 2/i
+  // v0.2.1 fix: ZAP exits 1, 2, or 3 when it FINDS vulnerabilities — that's
+  // the success path for any real scan. Previously we rejected on any non-zero
+  // exit, which marked every realistic scan as a failure.
+  it.each([
+    [1, 'errors found (HIGH severity)'],
+    [2, 'warnings found (MEDIUM severity)'],
+    [3, 'errors AND warnings'],
+  ])('resolves on exit code %i — %s (scan completed with findings)', async (code) => {
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [code, null] }));
+    await expect(runZap(['run'], { spawnFn: fakeSpawn })).resolves.toEqual({
+      exitCode: code,
+    });
+  });
+
+  it('rejects on exit code 4+ (ZAP infrastructure failure)', async () => {
+    const fakeSpawn = vi.fn(() => fakeChild({ event: 'exit', args: [4, null] }));
+    await expect(runZap(['run'], { spawnFn: fakeSpawn })).rejects.toThrow(
+      /exited with code 4/i
     );
   });
 

@@ -1,8 +1,17 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 
 const ZAP_IMAGE = 'zaproxy/zap-stable';
-const ZAP_POLICY_PATH = '/zap/configs/casa-tier2.policy';
 const ZAP_CONTEXT_PATH = '/zap/context.xml';
+
+// ZAP exit code semantics for zap-baseline.py / zap-full-scan.py:
+//   0 = no findings
+//   1 = errors found (HIGH severity rule fired)
+//   2 = warnings found (MEDIUM severity rule fired)
+//   3 = both errors AND warnings
+// Codes 1-3 are the SUCCESS path for a security scanner — finding things is
+// the whole point. Treat them as resolve, not reject. Anything 4+ (or signal
+// kill) means ZAP itself broke.
+const ZAP_SCAN_COMPLETED_CODES = new Set([0, 1, 2, 3]);
 
 const FLAVOR_TO_SCRIPT = {
   casa: 'zap-full-scan.py',
@@ -49,13 +58,17 @@ export function buildZapArgs({
     args.push('-v', `${scriptPath}:${containerScriptPath}:ro`);
   }
 
+  // NOTE: V1 shipped with -c /zap/configs/casa-tier2.policy, but the file
+  // we vendored is XML (ZAP GUI's policy export format). The -c flag for
+  // zap-baseline.py / zap-full-scan.py expects a tab-separated config
+  // (PLUGINID\tTHRESHOLD\tSTRENGTH per row). ZAP silently fell back to
+  // built-in defaults the entire time. Until a real ADA-tuned TSV policy
+  // ships, omit -c entirely so we don't ship a confusing warning every scan.
   args.push(
     ZAP_IMAGE,
     script,
     '-t',
     targetUrl,
-    '-c',
-    ZAP_POLICY_PATH,
     '-n',
     ZAP_CONTEXT_PATH,
     '-J',
@@ -104,12 +117,16 @@ export function runZap(args, { spawnFn = nodeSpawn } = {}) {
       }
     });
     child.on('exit', (code, signal) => {
-      if (code === 0) {
-        resolve({ exitCode: 0 });
-      } else if (signal) {
+      if (signal) {
         // Container was killed (OOM, docker stop, timeout). `code` is null in
         // this case, so the previous "exited with code null" message was junk.
         reject(new Error(`ZAP container was killed by signal ${signal}`));
+      } else if (ZAP_SCAN_COMPLETED_CODES.has(code)) {
+        // ZAP completed scanning. Exit code 0 = clean; 1-3 = found things.
+        // Either way, the scan succeeded and produced artifacts. Caller can
+        // triage findings via the summary.md / results.json the orchestrator
+        // writes — exit code from ZAP is too coarse for gating decisions.
+        resolve({ exitCode: code });
       } else {
         reject(new Error(`ZAP container exited with code ${code}`));
       }
