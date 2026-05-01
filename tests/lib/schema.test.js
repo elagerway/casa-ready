@@ -176,4 +176,13 @@ describe('ConfigSchema', () => {
     cfg.envs.staging.targets[0].scan = 'fast';
     expect(() => ConfigSchema.parse(cfg)).toThrow(/Invalid enum value|fast/);
   });
+
+  it("auth.type: 'none' rejects extra keys (NoAuthSchema is .strict())", () => {
+    // Catches a real failure mode: someone copies a `form` block, changes
+    // `type` to `none`, and forgets to remove `loginUrl`. Without strict
+    // mode, the leftover field would silently pass.
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none', loginUrl: 'https://leftover.example.com' };
+    expect(() => ConfigSchema.parse(cfg)).toThrow(/unrecognized|loginUrl/i);
+  });
 });
