@@ -2,7 +2,7 @@
 import { parseArgs } from 'node:util';
 import { runScan } from '../cli/commands/scan.js';
 
-const HELP = `casa-ready — pass Google CASA Tier 2 without paying $15K+
+const HELP = `casa-ready — open-source toolkit for Google CASA Tier 2
 
 Usage:
   casa-ready init                              Generate casa-ready.yml interactively

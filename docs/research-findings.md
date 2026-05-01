@@ -102,6 +102,8 @@ This is annual.
 
 Big-firm quotes (Bishop Fox, NCC, Leviathan): **$15K–$40K** for Tier 2, **$7K+** for Tier 3.
 
+> ⚠️ **Sourcing note (2026-05-01):** The "$15K–$40K" range above is not independently verified — it came into this doc without a citation to a specific quote, comment, or vendor proposal. Directionally consistent with industry knowledge about big-firm pen-test pricing, but **don't use the specific number in user-facing copy** (website, README, CLI). Use "thousands to tens of thousands" or "varies by scope" instead. Verifying this would mean either (a) finding the actual Reddit comments it draws from with screenshots/links, or (b) requesting a real quote from one of the named firms.
+
 The [$50K Email API Nightmare](https://medium.com/reversebits/the-50k-email-api-nightmare-why-your-simple-gmail-integration-just-became-a-compliance-hell-6071300b09b4) Medium piece claims $5K–$75K range, but the Reddit ground truth says that's only true if you go to the big firms. **TAC at $720 is the actual market price for indie devs.**
 
 ---

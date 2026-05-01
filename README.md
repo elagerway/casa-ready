@@ -1,12 +1,12 @@
 # CASA Ready
 
-> An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying $15K–$40K to consulting firms.
+> An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
 **Status:** V1.2 (`v0.3.0`) — YAML config, `init` command, JSON Schema for IDE autocomplete. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
-If your app uses restricted Google API scopes (full Gmail, Drive, Calendar), Google requires an annual [CASA Tier 2 assessment](https://appdefensealliance.dev/casa). The official self-scan path was deprecated in 2025 — your only options now are the [TAC Security](https://tacsecurity.com) lab ($540–$1,800) or a big firm ($15K–$40K).
+If your app uses restricted Google API scopes (full Gmail, Drive, Calendar), Google requires an annual [CASA Tier 2 assessment](https://appdefensealliance.dev/casa). The official self-scan path was deprecated in 2025 — your two options now are [TAC Security](https://tacsecurity.com)'s official lab ($540–$1,800/year) or a pen-test from a security consultancy (typically thousands to tens of thousands of dollars, plus weeks of back-and-forth).
 
 The bottleneck isn't the money. It's:
 
