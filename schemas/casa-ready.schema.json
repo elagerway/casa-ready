@@ -91,8 +91,46 @@
                             "apiKey"
                           ],
                           "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "type": {
+                              "type": "string",
+                              "const": "none"
+                            }
+                          },
+                          "required": [
+                            "type"
+                          ],
+                          "additionalProperties": false
                         }
                       ]
+                    },
+                    "seedUrls": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "seedDir": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "scan": {
+                      "type": "string",
+                      "enum": [
+                        "casa",
+                        "baseline",
+                        "oauth-callback"
+                      ]
+                    },
+                    "callbackParams": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
