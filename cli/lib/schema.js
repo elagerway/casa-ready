@@ -21,11 +21,15 @@ const SupabaseJwtAuthSchema = z
     type: z.literal('supabase-jwt'),
     loginUrl: HttpUrl,
     apiKey: z.string().min(1, 'apiKey is required'),
+    // refreshSeconds is accepted but unused as of v0.2.4 — the auth path
+    // (Node-side login + replacer-injected static Bearer) doesn't poll, so
+    // there's nothing to refresh on a schedule. Kept as an optional field
+    // for backward compat with v0.2.x YAMLs; new init runs don't set it.
     refreshSeconds: z
       .number()
       .int()
       .positive('refreshSeconds must be a positive integer')
-      .default(3300),
+      .optional(),
   })
   .strict();
 

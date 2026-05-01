@@ -82,8 +82,7 @@
                             },
                             "refreshSeconds": {
                               "type": "integer",
-                              "exclusiveMinimum": 0,
-                              "default": 3300
+                              "exclusiveMinimum": 0
                             }
                           },
                           "required": [
