@@ -158,6 +158,7 @@ async function runOneTarget({
       contextPath,
       scriptPath,
       replacerHeaders,
+      containerName: `casa-ready-${target.name}-${runId}`,
     });
 
     await runZap(args);

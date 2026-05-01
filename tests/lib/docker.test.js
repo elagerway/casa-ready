@@ -5,15 +5,18 @@ describe('buildZapArgs', () => {
   it('builds the exact argv for casa scan with no auth script (form auth)', () => {
     const args = buildZapArgs({
       flavor: 'casa',
-      targetUrl: 'https://magpipe.ai',
+      targetUrl: 'https://example.com',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/scan-output/prod/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-abc.xml',
       scriptPath: null,
+      containerName: 'casa-ready-spa-2026-04-30T12-00-00Z',
     });
     expect(args).toStrictEqual([
       'run',
       '--rm',
+      '--name',
+      'casa-ready-spa-2026-04-30T12-00-00Z',
       '-v',
       '/abs/configs/zap:/zap/configs:ro',
       '-v',
@@ -23,7 +26,7 @@ describe('buildZapArgs', () => {
       'zaproxy/zap-stable',
       'zap-full-scan.py',
       '-t',
-      'https://magpipe.ai',
+      'https://example.com',
       '-n',
       '/zap/context.xml',
       '-J',
@@ -38,6 +41,17 @@ describe('buildZapArgs', () => {
     // ZAP silently fell back to defaults the entire time. Re-add -c when a
     // real ADA-tuned TSV policy ships.
     expect(args).not.toContain('-c');
+  });
+
+  it('omits --name when containerName is not provided (backward compat)', () => {
+    const args = buildZapArgs({
+      flavor: 'casa',
+      targetUrl: 'https://x',
+      configsDir: '/c',
+      outputDir: '/o',
+      contextPath: '/ctx.xml',
+    });
+    expect(args).not.toContain('--name');
   });
 
   it('emits -z replacer config when replacerHeaders is provided (v0.2.4 supabase-jwt path)', () => {
