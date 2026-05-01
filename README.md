@@ -2,7 +2,7 @@
 
 > An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying $15K–$40K to consulting firms.
 
-**Status:** V1.1 (`v0.2.0`) — multi-target scanning + Supabase auth. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V1.2 (`v0.3.0`) — YAML config, `init` command, JSON Schema for IDE autocomplete. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
@@ -60,16 +60,14 @@ npm install -g casa-ready                              # global install
 npm install --save-dev casa-ready                      # local dev dep (recommended for CI)
 # OR run via npx (no install — slower per invocation, always latest)
 
-# 2. Get the example config
-#    Global install:
-cp $(npm root -g)/casa-ready/casa-ready.config.example.js casa-ready.config.js
-#    Local dev dep:
-cp node_modules/casa-ready/casa-ready.config.example.js casa-ready.config.js
-#    npx (no install) — download directly:
-curl -O https://raw.githubusercontent.com/elagerway/casa-ready/main/casa-ready.config.example.js
-mv casa-ready.config.example.js casa-ready.config.js
+# 2. Generate your config interactively (recommended)
+casa-ready init                                # walks you through the prompts
+# OR copy the YAML example and hand-edit
+curl -O https://raw.githubusercontent.com/elagerway/casa-ready/main/casa-ready.yml.example
+mv casa-ready.yml.example casa-ready.yml
 
-# 3. Edit casa-ready.config.js: set your app URLs and login form details
+# 3. Edit casa-ready.yml — VS Code with the YAML extension installed gives you
+#    inline autocomplete + schema validation thanks to the published JSON Schema
 
 # 4. Set creds (never put these in the config file)
 export CASA_READY_USER=your-test-user@example.com
@@ -155,7 +153,15 @@ export default {
 };
 ```
 
-See `casa-ready.config.example.js` for a worked example with both `form` and `supabase-jwt` auth.
+See `casa-ready.yml.example` for a worked example with both `form` and `supabase-jwt` auth.
+
+## Migrating from v0.2.x → v0.3.0
+
+V0.3.0 replaces the JS config with YAML. Easiest path: `rm casa-ready.config.js && casa-ready init`. See [MIGRATION.md](./MIGRATION.md) for a side-by-side translation.
+
+### IDE autocomplete
+
+VS Code with the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) installed picks up CASA Ready's published JSON Schema automatically (via the `# yaml-language-server: $schema=...` directive that `casa-ready init` writes at the top of your config). You get inline field validation, autocomplete on every key, and schema-aware error messages.
 
 ### New auth type: `supabase-jwt`
 
@@ -178,6 +184,7 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 |---|---|---|
 | **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
+| **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
 | **V2** | Authenticated scan: ZAP context with session replay + OAuth flows | V1.1 ships + TAC findings reveal coverage gaps anonymous scans can't catch |
 | later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |

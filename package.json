@@ -1,6 +1,6 @@
 {
   "name": "casa-ready",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Open-source toolkit to pass Google CASA Tier 2 security assessments without consulting-firm costs.",
   "type": "module",
   "bin": {
