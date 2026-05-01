@@ -1,9 +1,11 @@
 import * as form from './form.js';
 import * as supabaseJwt from './supabase-jwt.js';
+import * as none from './none.js';
 
 const RENDERERS = {
   form,
   'supabase-jwt': supabaseJwt,
+  none,
 };
 
 export async function getContext(opts) {
