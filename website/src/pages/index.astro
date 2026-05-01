@@ -1,0 +1,224 @@
+---
+import '../styles/global.css';
+
+const VERSION = 'v0.3.1';
+const RELEASE_DATE = 'May 1, 2026';
+const REPO = 'https://github.com/elagerway/casa-ready';
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <title>CASA Ready — Open-source toolkit for Google's CASA Tier 2</title>
+    <meta
+      name="description"
+      content="Open-source toolkit to pass Google's CASA Tier 2 security assessment for restricted Gmail/Drive/Calendar API scopes. OWASP ZAP automation, Supabase auth, schema-driven YAML config."
+    />
+    <meta property="og:title" content="CASA Ready — Open-source toolkit for Google's CASA Tier 2" />
+    <meta property="og:description" content="Open-source toolkit for Google's CASA Tier 2 security assessment. Built while shipping Magpipe through CASA." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://casaready.org" />
+    <meta name="twitter:card" content="summary" />
+  </head>
+  <body>
+    <main>
+      <header class="hero">
+        <p class="tagline">Open source · MIT · Built in the open</p>
+        <h1>Pass Google's CASA Tier 2 without paying a consulting firm.</h1>
+        <p class="lead">
+          If your app uses restricted Gmail, Drive, or Calendar scopes, Google requires an annual
+          <a href="https://appdefensealliance.dev/casa">CASA Tier 2 assessment</a>.
+          Two paths exist:
+          <a href="https://tacsecurity.com/esof-appsec-ada-casa-faqs/">TAC Security</a>'s
+          official lab ($540&ndash;$1,800/year, but you're on your own for a 50-question SAQ
+          and the OWASP ZAP setup), or a pen-test from a security consultancy
+          (typically thousands to tens of thousands, plus weeks of back-and-forth).
+          CASA Ready is an open-source toolkit that automates the scan, scaffolds the config,
+          and gives you the playbook the lab doesn't include.
+        </p>
+        <div class="cta-row">
+          <a class="cta primary" href="#quickstart">Quick start &rarr;</a>
+          <a class="cta secondary" href={REPO}>View on GitHub</a>
+        </div>
+        <p class="status">
+          <span class="badge">{VERSION}</span> shipped {RELEASE_DATE}
+          &middot; built while passing CASA for <a href="https://magpipe.ai">Magpipe</a>
+        </p>
+      </header>
+
+      <section class="section problem">
+        <h2>What's actually hard about CASA</h2>
+        <p class="section-intro">It isn't the money. It's:</p>
+        <ol class="pain-list">
+          <li>
+            <strong>No public guide.</strong> TAC sends you portal credentials and a deadline.
+            No walkthrough, no example artifacts, no "here's what 'pass' looks like."
+          </li>
+          <li>
+            <strong>A 50+ question Self-Assessment Questionnaire</strong> that takes most of the
+            calendar time. Most answers are "the cloud provider handles that" or "N/A for our
+            architecture" &mdash; but you have to figure that out yourself.
+          </li>
+          <li>
+            <strong>OWASP ZAP / Fluid Attacks setup</strong> the App Defense Alliance's own docs
+            make harder than it needs to be. Wrong context XML, wrong policy file format, wrong
+            exit-code semantics &mdash; we've hit them all.
+          </li>
+          <li>
+            <strong>Annual recert</strong> resets the pain. CASA Ready is built so the second year
+            is a single command.
+          </li>
+        </ol>
+      </section>
+
+      <section class="section quickstart" id="quickstart">
+        <h2>30 seconds to your first scan</h2>
+        <ol class="steps">
+          <li>
+            <h3>Install</h3>
+            <pre><code>npm install -g casa-ready</code></pre>
+          </li>
+          <li>
+            <h3>Generate your config</h3>
+            <pre><code>casa-ready init</code></pre>
+            <p class="note">
+              Interactive prompts walk you through your app's URLs and login form (or Supabase
+              JWT auth). Writes a <code>casa-ready.yml</code> with IDE autocomplete wired up via
+              the published JSON Schema.
+            </p>
+          </li>
+          <li>
+            <h3>Scan</h3>
+            <pre><code>export CASA_READY_USER=test-user@your-app.com
+export CASA_READY_PASS=test-password
+casa-ready scan</code></pre>
+            <p class="note">
+              Spins up OWASP ZAP in Docker with the right context, runs the baseline or full CASA
+              scan, writes TAC-portal-ready artifacts to <code>scan-output/</code>.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <section class="section features">
+        <h2>What you get</h2>
+        <div class="feature-grid">
+          <article class="feature">
+            <h3>Multi-target scanning</h3>
+            <p>
+              Scan your SPA frontend (form auth) and Supabase API (JWT auth) in one
+              <code>casa-ready scan</code> invocation. Per-target ZAP context, per-target findings,
+              one aggregated TAC bundle.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Supabase JWT auth, done right</h3>
+            <p>
+              Native <code>supabase-jwt</code> auth type does the Supabase password login from
+              Node, then injects the JWT and anon key into every in-scope ZAP request via the
+              replacer addon. Fails fast with an actionable error if creds are wrong.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>YAML config + IDE autocomplete</h3>
+            <p>
+              <code>casa-ready.yml</code> is a regular YAML file. The
+              <code>$schema</code> directive at the top wires up VS Code's YAML extension
+              for inline validation, autocomplete on every key, and schema-aware error messages.
+              <code>{`\${VAR}`}</code> expansion keeps secrets out of the file.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Named containers in Docker Desktop</h3>
+            <p>
+              Every ZAP container spawns as
+              <code>casa-ready-&lt;target&gt;-&lt;runId&gt;</code>
+              and the name is printed to stdout when the scan starts. No more guessing which
+              "competent_pasteur" container is yours.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Best-effort failure semantics</h3>
+            <p>
+              A failed target gets reported in the summary; remaining targets still scan. The
+              process exit code is non-zero only if something actually failed. CI-friendly.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Built in the open</h3>
+            <p>
+              MIT licensed. Every release is dogfooded against
+              <a href="https://magpipe.ai">Magpipe</a> &mdash; a live commercial product going
+              through CASA before its 2026-07-23 deadline. If it breaks for us, we ship a fix the
+              same day.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section roadmap">
+        <h2>Roadmap</h2>
+        <table>
+          <thead>
+            <tr><th>Version</th><th>Scope</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>V1.0</td>
+              <td>Anonymous + form-auth ZAP scan, single target</td>
+              <td class="shipped">Shipped Apr 29, 2026 &mdash; v0.1.0</td>
+            </tr>
+            <tr>
+              <td>V1.1</td>
+              <td>Multi-target scanning + supabase-jwt auth</td>
+              <td class="shipped">Shipped Apr 29, 2026 &mdash; v0.2.0</td>
+            </tr>
+            <tr>
+              <td>V1.2</td>
+              <td>YAML config + <code>init</code> command + JSON Schema + TS types</td>
+              <td class="shipped">Shipped May 1, 2026 &mdash; v0.3.0</td>
+            </tr>
+            <tr>
+              <td>V2</td>
+              <td>Authenticated OAuth flow scanning (Gmail-restricted user paths)</td>
+              <td>Next, after a soak window on V1.2</td>
+            </tr>
+            <tr>
+              <td>V3</td>
+              <td><code>casa-ready saq</code> &mdash; SAQ Copilot drafting answers from repo + cloud config</td>
+              <td>Once V1/V2 produce real scan output to feed it</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="section out-of-scope">
+        <h2>Deliberately out of scope</h2>
+        <ul>
+          <li>
+            Multi-framework support (SOC 2, ISO 27001) &mdash; see
+            <a href="https://github.com/getprobo/probo">Probo</a> or
+            <a href="https://github.com/trycompai/comp">Comp AI</a>
+          </li>
+          <li>
+            Cloud infra scanning (AWS/Azure config checks) &mdash; see
+            <a href="https://github.com/transilienceai/shasta">Shasta</a>
+          </li>
+          <li>Hosted/managed service &mdash; this is a free toolkit, not a SaaS replacement for TAC</li>
+        </ul>
+      </section>
+
+      <footer>
+        <p>
+          MIT licensed. <a href={REPO}>Source on GitHub</a>
+          &middot; <a href={`${REPO}/blob/main/CHANGELOG.md`}>Changelog</a>
+          &middot; <a href={`${REPO}/issues`}>Report an issue</a>
+        </p>
+        <p class="signature">Built by <a href="https://snapsonic.com">Snapsonic</a> while shipping <a href="https://magpipe.ai">Magpipe</a>.</p>
+      </footer>
+    </main>
+  </body>
+</html>
