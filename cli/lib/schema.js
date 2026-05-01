@@ -67,14 +67,16 @@ const TargetSchema = z
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['callbackParams'],
-          message: 'callbackParams is required (and non-empty) when scan is oauth-callback',
+          message:
+            "callbackParams is required when scan: 'oauth-callback' — list the query-string keys ZAP should treat as scan inputs (e.g. callbackParams: { state: '*', code: '*' })",
         });
       }
-      if (target.auth?.type !== 'none') {
+      if (target.auth.type !== 'none') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['auth', 'type'],
-          message: "scan: 'oauth-callback' requires auth.type: 'none' (callback URLs are public)",
+          message:
+            "scan: 'oauth-callback' requires auth.type: 'none' (callback URLs are public — set auth: { type: none })",
         });
       }
     }
