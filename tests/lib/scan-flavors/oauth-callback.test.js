@@ -60,6 +60,8 @@ describe('renderOpenApiYaml', () => {
     expect(yaml).toContain('name: code');
     expect(yaml).toContain('example: xyz');
     expect(yaml).toContain('in: query');
+    expect(yaml).toContain('required: true');
+    expect(yaml).toMatch(/schema:\s*\n\s*type: string/);
   });
 
   it('parses the URL path correctly (no host in the path:)', () => {
