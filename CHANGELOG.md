@@ -4,6 +4,31 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-05-01
+
+### Added
+- **YAML config (`casa-ready.yml`)** replaces the legacy JS module. Statically inspectable, supports comments, matches the OWASP/CASA toolchain norm — and avoids the security review that arbitrary-JS configs trigger at most companies.
+- **`casa-ready init`** — interactive prompts that scaffold a valid `casa-ready.yml`. External customers no longer need to read the schema before getting started. Per-target prompts branch on auth.type (form vs supabase-jwt), pre-fill sensible defaults, and use `${VAR}` env-var indirection so anon keys never land in the YAML.
+- **`${VAR_NAME}` env-var expansion** in YAML values (recursive, walks objects + arrays). Throws on missing var with the dotted path that referenced it (`envs.staging.targets.0.auth.apiKey`).
+- **JSON Schema** published in the package (`schemas/casa-ready.schema.json`) and generated from the Zod source on every `prepublishOnly`. The `# yaml-language-server: $schema=…` directive at the top of generated YAML configs enables inline autocomplete + validation in VS Code's YAML extension.
+- **TypeScript types** exported (`types/index.d.ts`) for programmatic Node users: `import type { CasaReadyConfig } from 'casa-ready'`.
+- **Zod schema as single source of truth** — `cli/lib/schema.js` drives runtime validation, JSON Schema export, and TypeScript type emission. Previously, validation was a hand-rolled cascade in `config.js`.
+- **Named containers** — every ZAP container is now spawned with `--name casa-ready-<target>-<runId>` and the name is printed to stdout. Find the running scan in Docker Desktop's Containers tab without guessing.
+- **`MIGRATION.md`** with a full v0.2.x → v0.3.0 side-by-side translation.
+
+### Changed
+- **BREAKING:** config format. `casa-ready.config.js` is no longer read; v0.3 looks for `casa-ready.yml`. Detected legacy `.js` configs produce a migration error pointing at `casa-ready init` and `MIGRATION.md` rather than the generic not-found message. See [README](./README.md) and [MIGRATION.md](./MIGRATION.md) for the side-by-side.
+- Validation moved from a hand-rolled cascade in `config.js` to Zod schemas with structured issues. Error messages now name the dotted path of the failing field (e.g. `envs.staging.targets.0.auth.loginUrl: url must start with http:// or https://`).
+- `package.json` gained a `"files"` allowlist so the published npm package only includes runtime artifacts (no tests, no scan-output, no .worktrees).
+- `SupabaseJwtAuthSchema.refreshSeconds` is now `.optional()` with no `.default(3300)`. The field has been a no-op since v0.2.4 (the new auth path doesn't poll); auto-injecting a value made YAMLs misleadingly include something with no semantics. Old v0.2.x YAMLs that explicitly set `refreshSeconds` still validate.
+
+### Deferred / known limitations
+- Per-target scan flavor (currently `--scan` applies to all targets) — v0.3.1.
+- Per-target failure mode (`required: true|false`) — v0.3.1.
+- Generic `json-script` auth (Auth0, Firebase, etc.) — v0.4.
+- Real ADA-tuned ZAP policy file (still using OWASP Top 10 fallback) — carries forward.
+- OAuth-flow scanning — V2.
+
 ## [0.2.4] — 2026-04-30
 
 ### Fixed
