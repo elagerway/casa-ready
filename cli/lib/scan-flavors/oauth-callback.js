@@ -90,27 +90,47 @@ export function renderOpenApiYaml({ url, params }) {
   const serverUrl = `${parsed.protocol}//${parsed.host}`;
   const path = parsed.pathname;
 
+  // zap-api-scan.py normalizes the active-scan target to the host root
+  // (target = target[0:target.index('/', 8)+1]) before calling
+  // zap.ascan.scan(target, recurse=True, contextid=...). If the host root
+  // URL isn't in the context's message tree, ZAP rejects with
+  // URL_NOT_IN_CONTEXT. We include a dummy root path "/" alongside the real
+  // callback path so both URLs land in the message tree on import. The
+  // active scan then walks recursively from the root and hits the callback
+  // with its parameters as the actual fuzz target.
+  // v0.4.3 fix surfaced by the Magpipe oauth-callback dogfood.
+  const paths = {
+    '/': {
+      get: {
+        summary: 'host root (dummy entry for zap-api-scan target normalization)',
+        responses: { 200: { description: 'ok' } },
+      },
+    },
+  };
+  // Don't double-add if the user's callback URL IS the host root.
+  if (path !== '/') {
+    paths[path] = {
+      get: {
+        summary: 'OAuth callback handler',
+        parameters: Object.entries(params).map(([name, example]) => ({
+          name,
+          in: 'query',
+          required: true,
+          schema: { type: 'string' },
+          example,
+        })),
+        responses: {
+          200: { description: 'callback handled' },
+        },
+      },
+    };
+  }
+
   const doc = {
     openapi: '3.0.0',
     info: { title: 'casa-ready oauth-callback scan', version: '1' },
     servers: [{ url: serverUrl }],
-    paths: {
-      [path]: {
-        get: {
-          summary: 'OAuth callback handler',
-          parameters: Object.entries(params).map(([name, example]) => ({
-            name,
-            in: 'query',
-            required: true,
-            schema: { type: 'string' },
-            example,
-          })),
-          responses: {
-            200: { description: 'callback handled' },
-          },
-        },
-      },
-    },
+    paths,
   };
 
   return yaml.dump(doc, { lineWidth: 120, noRefs: true });

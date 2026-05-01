@@ -71,14 +71,29 @@ describe('renderOpenApiYaml', () => {
     expect(yaml).toMatch(/schema:\s*\n\s*type: string/);
   });
 
-  it('parses the URL path correctly (no host in the path:)', () => {
+  it('parses the URL path correctly (no host in the path:) and includes a host-root entry', () => {
     const yaml = renderOpenApiYaml({
       url: 'https://magpipe.ai/auth/google/callback',
       params: { state: 'x' },
     });
     // The OpenAPI 'paths:' key has the URL path only; the server URL has the origin.
     expect(yaml).toMatch(/servers:\n\s*-\s*url:\s*https:\/\/magpipe\.ai\b/);
-    expect(yaml).toMatch(/paths:\n\s*\/auth\/google\/callback:/);
+    // v0.4.3: paths includes BOTH the host root "/" (dummy entry needed by
+    // zap-api-scan.py's target normalization to host root) AND the actual
+    // callback path. ZAP imports both; active scan recurses from root.
+    // js-yaml renders the root key bare as `/:` (no quotes needed)
+    expect(yaml).toMatch(/paths:\n\s*\/:/);
+    expect(yaml).toContain('/auth/google/callback:');
+  });
+
+  it('omits the dummy host-root entry when the callback IS the host root', () => {
+    const yaml = renderOpenApiYaml({
+      url: 'https://x.com/',
+      params: { state: 'x' },
+    });
+    // Host root is the only path — no duplicate entry.
+    const rootMatches = (yaml.match(/^\s*\/:/gm) || []).length;
+    expect(rootMatches).toBe(1);
   });
 
   it('XML-escapes nothing (it is YAML, not XML) but quotes example values that need it', () => {

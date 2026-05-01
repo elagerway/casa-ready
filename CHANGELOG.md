@@ -4,6 +4,15 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] — 2026-05-01
+
+### Fixed
+- **`oauth-callback` flavor failed at active-scan time with `URL_NOT_IN_CONTEXT`.** `zap-api-scan.py` normalizes the active-scan target to the host root (`https://x.supabase.co/`) before calling `zap.ascan.scan(target, recurse=True, contextid=...)`. Our synthesized OpenAPI only included the specific callback path, so the host root was never imported into the message tree → ZAP rejected the active scan. Surfaced by the V2 oauth-callback dogfood against Magpipe's 4 integration callbacks (cal-com, linkedin, twitter, integration). `renderOpenApiYaml` now includes a dummy `/` path alongside the real callback path, so both URLs land in ZAP's tree on import. The active scan recurses from the host root and finds the callback path with its parameters as the actual fuzz target.
+
+### Notes
+- This is the third hotfix in two hours, all surfaced by the same Magpipe dogfood. Pattern: V2's three new code paths (seed-file mount, OpenAPI mount, OpenAPI content) each had a Docker/ZAP integration assumption that the unit test suite couldn't catch. After v0.4.3 the oauth-callback flavor actually exercises the active scanner end-to-end.
+- The "include host root in synthesized OpenAPI" fix is a targeted workaround for `zap-api-scan.py`'s host-root normalization. A more architecturally clean alternative (custom `--hook` that does `zap.ascan.scan` directly against the specific callback URL, bypassing the wrapper's normalization) is tracked for V2.1 — but the workaround is small, well-tested, and unblocks the dogfood now.
+
 ## [0.4.2] — 2026-05-01
 
 ### Fixed
