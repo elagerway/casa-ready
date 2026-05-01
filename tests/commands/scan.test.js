@@ -188,4 +188,70 @@ describe('runScan (multi-target)', () => {
     const { rm } = await import('node:fs/promises');
     await rm(path.join(process.cwd(), 'scan-output'), { recursive: true, force: true });
   });
+
+  it('uses per-target scan flavor when set, else falls back to opts.flavor', async () => {
+    // Build a fixture YAML on the fly: one supabase-jwt target with no scan
+    // override, one oauth-callback target with scan: oauth-callback.
+    const tmpDir = path.join(__dirname, '..', 'fixtures', 'tmp-mixed-flavors');
+    const ymlPath = path.join(tmpDir, 'casa-ready.yml');
+    await import('node:fs/promises').then((fs) => fs.mkdir(tmpDir, { recursive: true }));
+    await import('node:fs/promises').then((fs) =>
+      fs.writeFile(
+        ymlPath,
+        `app: testapp
+envs:
+  staging:
+    targets:
+      - name: api
+        url: https://api.example.com
+        auth:
+          type: supabase-jwt
+          loginUrl: https://api.example.com/auth/v1/token
+          apiKey: anon
+      - name: oauth-callback
+        url: https://api.example.com/auth/google/callback
+        auth: { type: none }
+        scan: oauth-callback
+        callbackParams:
+          state: x
+          code: y
+`
+      )
+    );
+    try {
+      const deps = makeDeps();
+      // Track which scriptName each runZap call used (proxy for flavor)
+      deps.runZap = vi.fn().mockImplementation(async (args) => {
+        // Find the script name (token after the image name 'zaproxy/zap-stable')
+        const imgIdx = args.indexOf('zaproxy/zap-stable');
+        const scriptName = args[imgIdx + 1];
+        deps.runZap.scripts = deps.runZap.scripts || [];
+        deps.runZap.scripts.push(scriptName);
+        return { exitCode: 0 };
+      });
+      // supabase-jwt path needs a fetchFn we control
+      deps.getAuthContext = async ({ target }) => {
+        if (target.auth.type === 'supabase-jwt') {
+          return {
+            contextXml: '<context>fake</context>',
+            scriptPath: null,
+            replacerHeaders: [{ name: 'Authorization', value: 'Bearer fake' }],
+          };
+        }
+        if (target.auth.type === 'none') {
+          return { contextXml: '<context>fake</context>', scriptPath: null, replacerHeaders: null };
+        }
+        throw new Error(`unexpected auth type ${target.auth.type}`);
+      };
+      await runScan(
+        { configPath: ymlPath, env: 'staging', confirmProd: false, flavor: 'casa' },
+        deps
+      );
+      expect(deps.runZap.scripts).toEqual(['zap-full-scan.py', 'zap-api-scan.py']);
+    } finally {
+      await import('node:fs/promises').then((fs) =>
+        fs.rm(tmpDir, { recursive: true, force: true })
+      );
+    }
+  });
 });
