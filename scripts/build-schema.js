@@ -42,7 +42,15 @@ export interface Env {
 export interface Target {
   name: string;
   url: string;
-  auth: FormAuth | SupabaseJwtAuth;
+  auth: FormAuth | SupabaseJwtAuth | NoAuth;
+  /** Explicit list of URLs to seed ZAP's spider with (in addition to target.url). */
+  seedUrls?: string[];
+  /** Path to a directory whose subdirectory names become seed URLs (Supabase shortcut). */
+  seedDir?: string;
+  /** Per-target scan flavor override; defaults to the global --scan flag. */
+  scan?: 'casa' | 'baseline' | 'oauth-callback';
+  /** Required when scan='oauth-callback'. Query params used as fuzz starting input. */
+  callbackParams?: Record<string, string>;
 }
 
 export interface FormAuth {
@@ -59,6 +67,10 @@ export interface SupabaseJwtAuth {
   loginUrl: string;
   apiKey: string;
   refreshSeconds?: number;
+}
+
+export interface NoAuth {
+  type: 'none';
 }
 `;
 
