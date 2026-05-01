@@ -22,6 +22,16 @@ envs:
           apiKey: public-anon-key-here
           refreshSeconds: 3300
 
+      - name: oauth-callback
+        url: https://staging.example.com/auth/google/callback
+        auth:
+          type: none
+        scan: oauth-callback
+        callbackParams:
+          state: test-state
+          code: test-code
+          redirect_uri: https://staging.example.com/dashboard
+
   prod:
     targets:
       - name: spa
