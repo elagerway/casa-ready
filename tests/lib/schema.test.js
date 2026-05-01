@@ -8,10 +8,10 @@ const validConfig = {
       targets: [
         {
           name: 'spa',
-          url: 'https://staging.magpipe.ai',
+          url: 'https://staging.example.com',
           auth: {
             type: 'form',
-            loginUrl: 'https://staging.magpipe.ai/login',
+            loginUrl: 'https://staging.example.com/login',
             loginRequestBody: 'email={%username%}&password={%password%}',
             usernameField: 'email',
             passwordField: 'password',

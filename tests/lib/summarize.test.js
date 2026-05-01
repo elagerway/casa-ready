@@ -79,7 +79,7 @@ describe('summarize', () => {
               cweid: '693',
               count: '2',
               instances: [
-                { uri: 'https://magpipe.ai/page' },
+                { uri: 'https://example.com/page' },
                 { uri: 'https://cdn.jsdelivr.net/lib.js' },
               ],
               solution: 'Set the header.',

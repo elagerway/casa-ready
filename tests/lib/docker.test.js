@@ -89,7 +89,7 @@ describe('buildZapArgs', () => {
   it('omits -z entirely when no replacerHeaders are passed (form-auth path)', () => {
     const args = buildZapArgs({
       flavor: 'casa',
-      targetUrl: 'https://magpipe.ai',
+      targetUrl: 'https://example.com',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/scan-output/prod/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-form.xml',
@@ -115,7 +115,7 @@ describe('buildZapArgs', () => {
   it('uses zap-baseline.py for the baseline flavor', () => {
     const args = buildZapArgs({
       flavor: 'baseline',
-      targetUrl: 'https://magpipe.ai',
+      targetUrl: 'https://example.com',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/scan-output/staging/2026-04-29T12-00-00Z',
       contextPath: '/tmp/casa-ctx-abc.xml',

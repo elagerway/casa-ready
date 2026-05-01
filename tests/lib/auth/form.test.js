@@ -11,10 +11,10 @@ const configsDir = path.resolve(__dirname, '..', '..', '..', 'configs', 'zap');
 describe('form auth getContext', () => {
   const target = {
     name: 'spa',
-    url: 'https://magpipe.ai',
+    url: 'https://example.com',
     auth: {
       type: 'form',
-      loginUrl: 'https://magpipe.ai/login',
+      loginUrl: 'https://example.com/login',
       loginRequestBody: 'email={%username%}&password={%password%}',
       usernameField: 'email',
       passwordField: 'password',
@@ -26,7 +26,7 @@ describe('form auth getContext', () => {
   it('returns rendered XML referencing the target name and credentials', async () => {
     const result = await getContext({ target, credentials, configsDir, runId: 'r1' });
     expect(result.contextXml).toContain('<name>spa</name>');
-    expect(result.contextXml).toContain('https://magpipe.ai');
+    expect(result.contextXml).toContain('https://example.com');
     expect(result.contextXml).toContain('erik@example.com');
     expect(result.contextXml).toContain('p@ss!');
     expect(result.contextXml).not.toContain('{{');

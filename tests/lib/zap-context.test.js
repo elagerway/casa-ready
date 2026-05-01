@@ -97,31 +97,31 @@ describe('deriveOriginScope', () => {
 
   it('handles bare-host URLs (no path, no trailing slash) — v0.2.3 fix', () => {
     // Without the optional-path group, ZAP's spider rejects the seed URL
-    // because `https://magpipe.ai` doesn't match `https://magpipe\.ai/.*`
+    // because `https://example.com` doesn't match `https://example\.com/.*`
     // (the trailing `/.*` requires content after the slash).
-    expect(deriveOriginScope('https://magpipe.ai')).toBe(
-      '^https://magpipe\\.ai(/.*)?$'
+    expect(deriveOriginScope('https://example.com')).toBe(
+      '^https://example\\.com(/.*)?$'
     );
     // Verify the produced regex actually matches the bare URL.
-    const re = new RegExp(deriveOriginScope('https://magpipe.ai'));
-    expect(re.test('https://magpipe.ai')).toBe(true);
-    expect(re.test('https://magpipe.ai/')).toBe(true);
-    expect(re.test('https://magpipe.ai/dashboard')).toBe(true);
+    const re = new RegExp(deriveOriginScope('https://example.com'));
+    expect(re.test('https://example.com')).toBe(true);
+    expect(re.test('https://example.com/')).toBe(true);
+    expect(re.test('https://example.com/dashboard')).toBe(true);
   });
 
   it('rejects host-smuggling attempts (suffix after the port/host)', () => {
-    // A regex without `(/.*)?$` — e.g. `^https://magpipe\.ai.*` — would
-    // accept `https://magpipe.aievil.com` as in-scope. Origin anchoring
+    // A regex without `(/.*)?$` — e.g. `^https://example\.com.*` — would
+    // accept `https://example.comevil.com` as in-scope. Origin anchoring
     // prevents that.
-    const re = new RegExp(deriveOriginScope('https://magpipe.ai'));
-    expect(re.test('https://magpipe.aievil.com')).toBe(false);
-    expect(re.test('https://magpipe.ai.evil.com')).toBe(false);
+    const re = new RegExp(deriveOriginScope('https://example.com'));
+    expect(re.test('https://example.comevil.com')).toBe(false);
+    expect(re.test('https://example.com.evil.com')).toBe(false);
   });
 
   it('strips query strings and fragments (only origin matters for scope)', () => {
     expect(
-      deriveOriginScope('https://magpipe.ai/login?next=/dashboard#x')
-    ).toBe('^https://magpipe\\.ai(/.*)?$');
+      deriveOriginScope('https://example.com/login?next=/dashboard#x')
+    ).toBe('^https://example\\.com(/.*)?$');
   });
 
   it('escapes regex meta characters in the host', () => {

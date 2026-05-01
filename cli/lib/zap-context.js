@@ -25,7 +25,7 @@ export function renderContext(template, values) {
  * different path of the same host are still in scope.
  *
  * The path is OPTIONAL in the produced regex — a bare-host targetUrl like
- * `https://magpipe.ai` (no trailing slash, no path) must still be in scope,
+ * `https://example.com` (no trailing slash, no path) must still be in scope,
  * otherwise ZAP's spider rejects the seed URL with URL_NOT_IN_CONTEXT.
  *
  * Example:
