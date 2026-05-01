@@ -4,6 +4,15 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] — 2026-05-01
+
+### Fixed
+- **`oauth-callback` flavor mount path conflict — same bug class as v0.4.1's seed-file fix.** `oauth-callback.js` mounted the synthetic OpenAPI doc at `/zap/wrk/openapi.yaml`, but `/zap/wrk` is already bind-mounted from `outputDir`. Docker Desktop's virtiofs on macOS can't nest a file mount inside an existing directory mount — fails at runtime with `mountpoint ... is outside of rootfs`. Surfaced by the V2 dogfood scan against Magpipe with 4 oauth-callback targets (all 4 failed to start). Moved to `/zap/openapi.yaml` (root level, no parent-mount conflict). Added a defensive regression test that asserts the mount path is NOT inside `/zap/wrk/`.
+
+### Notes
+- Both v0.4.0's seed-file mount and v0.4.1's OpenAPI mount were the same kind of mistake: putting a file mount inside a directory mount that's already bind-mounted from the host. After v0.4.2 all single-file mounts (`/zap/context.xml`, `/zap/seed-urls.txt`, `/zap/openapi.yaml`) live at the `/zap/` root, away from the directory mounts (`/zap/configs`, `/zap/wrk`).
+- This is the second hotfix in two hours — both surfaced by the same Magpipe dogfood and both invisible to the unit test suite (which doesn't exercise actual `docker run` mount semantics). The two regression tests added in v0.4.1 + v0.4.2 close those specific gaps; the broader lesson (mount-path conflicts need integration coverage) is tracked for v0.5+.
+
 ## [0.4.1] — 2026-05-01
 
 ### Fixed

@@ -2,7 +2,12 @@ import yaml from 'js-yaml';
 
 const ZAP_IMAGE = 'zaproxy/zap-stable';
 const ZAP_CONTEXT_PATH = '/zap/context.xml';
-const ZAP_OPENAPI_PATH = '/zap/wrk/openapi.yaml';
+// OpenAPI doc lives at /zap/ root, NOT inside /zap/wrk/ — that path is
+// already bind-mounted from outputDir, and Docker Desktop's virtiofs on
+// macOS rejects nested file-inside-dir mounts ("outside of rootfs" error).
+// Same bug class as v0.4.1's seed-file fix. v0.4.2 surfaced by the Magpipe
+// dogfood with 4 oauth-callback targets — all 4 failed at runtime.
+const ZAP_OPENAPI_PATH = '/zap/openapi.yaml';
 
 /**
  * Build docker argv for an OAuth callback active scan.

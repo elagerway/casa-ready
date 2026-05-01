@@ -19,11 +19,18 @@ describe('scan-flavors/oauth-callback', () => {
     expect(args[fIdx + 1]).toBe('openapi');
   });
 
-  it('mounts the synthetic OpenAPI file and points -t at it inside the container', () => {
+  it('mounts the synthetic OpenAPI file at /zap/ root (NOT inside /zap/wrk)', () => {
+    // v0.4.2 regression catch: any path inside /zap/wrk/ would fail at
+    // runtime with "outside of rootfs" — Docker Desktop's virtiofs on macOS
+    // can't nest a file mount inside an existing directory mount. Same bug
+    // class as v0.4.1's seed-file fix.
     const args = buildArgs(baseOpts);
-    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/wrk/openapi.yaml:ro');
+    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/openapi.yaml:ro');
     const tIdx = args.indexOf('-t');
-    expect(args[tIdx + 1]).toBe('/zap/wrk/openapi.yaml');
+    expect(args[tIdx + 1]).toBe('/zap/openapi.yaml');
+    // Defense in depth: assert the OpenAPI mount is NOT inside /zap/wrk/
+    const openApiMount = args.find((a) => a.startsWith('/tmp/oauth-openapi-abc.yaml:'));
+    expect(openApiMount).not.toMatch(/:\/zap\/wrk\//);
   });
 
   it('preserves the standard mount + report flag set', () => {

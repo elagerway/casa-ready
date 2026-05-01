@@ -161,12 +161,13 @@ describe('buildZapArgs', () => {
       callbackParams: { state: 'x' },
       openApiPath: '/tmp/oauth-openapi-abc.yaml',
     });
-    // The oauth-callback flavor mounts the OpenAPI doc at /zap/wrk/openapi.yaml.
-    // If openApiPath isn't forwarded from buildZapArgs to the dispatcher, the
-    // oauth-callback adapter throws "openApiPath is required". This test pins
-    // the contract at the docker.js layer so a future refactor of the
-    // destructure can't silently drop it.
-    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/wrk/openapi.yaml:ro');
+    // The oauth-callback flavor mounts the OpenAPI doc at /zap/openapi.yaml
+    // (root level, NOT inside /zap/wrk — v0.4.2 fix for Docker virtiofs
+    // nested-mount rejection on macOS). If openApiPath isn't forwarded from
+    // buildZapArgs to the dispatcher, the oauth-callback adapter throws
+    // "openApiPath is required". This test pins the contract at the docker.js
+    // layer so a future refactor of the destructure can't silently drop it.
+    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/openapi.yaml:ro');
   });
 });
 
