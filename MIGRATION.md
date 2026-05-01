@@ -1,5 +1,30 @@
 # Migrating CASA Ready
 
+## v0.3.x → v0.4.0
+
+Fully backward-compatible. All v0.3.x configs work unchanged. New optional target fields:
+
+| Field | Purpose |
+|---|---|
+| `seedUrls: [...]` | Explicit URLs to seed ZAP's spider with (full URLs or paths). |
+| `seedDir: ./supabase/functions` | Supabase shortcut. Globs subdirs of the path; each subdir name becomes a seed URL. |
+| `scan: oauth-callback` | Per-target scan flavor for OAuth callback handlers. Requires `callbackParams` and `auth.type: none`. |
+| `auth: { type: none }` | For genuinely public endpoints (callback handlers, marketing pages). Skips login. |
+| `callbackParams: {...}` | Required when `scan: oauth-callback`. Query params used as fuzz starting input. |
+
+Magpipe-style minimal upgrade — add one line to your existing `api` target:
+
+```yaml
+- name: api
+  url: https://x.supabase.co/functions/v1
+  auth: { type: supabase-jwt, ... }
+  seedDir: ./supabase/functions   # ← add this
+```
+
+ZAP now discovers all your Edge Functions instead of hitting only the directory-listing-less root.
+
+---
+
 ## v0.2.x → v0.3.0
 
 V0.3.0 replaces the JavaScript config (`casa-ready.config.js`) with declarative YAML (`casa-ready.yml`). The schema shape is unchanged — same `app`, `envs.<name>.targets[]`, same auth types — just expressed in YAML.

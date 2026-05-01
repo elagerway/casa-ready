@@ -83,6 +83,20 @@ The path is well-trodden — `supabase-jwt` was added in v0.2.0 and rewritten in
 
 The JSON Schema and TS types regenerate from step 1 — no manual edits to `schemas/` or `types/`.
 
+### Adding a new scan flavor
+
+The path mirrors auth types — the dispatcher in `cli/lib/scan-flavors/index.js` maps flavor names to per-flavor adapter modules:
+
+1. Add the flavor to the `ScanFlavorSchema` enum in `cli/lib/schema.js`.
+2. Add cross-field rules to `TargetSchema.superRefine` if the flavor requires specific other fields (e.g. `oauth-callback` requires `callbackParams` and `auth.type: none`).
+3. Create `cli/lib/scan-flavors/<flavor>.js` exporting `buildArgs(opts)` that returns a docker argv.
+4. Register it in `cli/lib/scan-flavors/index.js`'s `FLAVORS` map.
+5. Add tests at `tests/lib/scan-flavors/<flavor>.test.js`.
+6. If the flavor uses a different ZAP wrapper script (`zap-baseline.py` vs `zap-api-scan.py` vs the GraphQL one), look at `cli/lib/scan-flavors/oauth-callback.js` for how to mount the spec file and pass `-f` etc.
+7. Update README + CHANGELOG.
+
+The JSON Schema and TS types regenerate from step 1 — no manual edits to `schemas/` (but `types/index.d.ts`'s union may need a hand-update in `scripts/build-schema.js`).
+
 ### Commit style
 
 Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`). Subject under 70 chars. Body explains the *why*, not the *what* — the diff already shows the what. Look at `git log --oneline -20` for the running style; the v0.2.4 and v0.3.0 commits are good examples of body length and tone.

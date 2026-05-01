@@ -2,7 +2,7 @@
 
 > An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
-**Status:** V1.2 (`v0.3.0`) — YAML config, `init` command, JSON Schema for IDE autocomplete. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V2 (`v0.4.0`) — endpoint seeding (`seedDir`/`seedUrls`) + OAuth callback active-scanning. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
@@ -159,6 +159,24 @@ See `casa-ready.yml.example` for a worked example with both `form` and `supabase
 
 V0.3.0 replaces the JS config with YAML. Easiest path: `rm casa-ready.config.js && casa-ready init`. See [MIGRATION.md](./MIGRATION.md) for a side-by-side translation.
 
+## v0.3.x → v0.4.0
+
+V0.4.0 is fully backward-compatible. New optional fields on `targets[]`:
+
+```yaml
+seedDir: ./supabase/functions   # Supabase shortcut: glob subdirs into seed URLs
+seedUrls: ['/functions/v1/legacy-endpoint']   # explicit list (full URLs or paths)
+scan: oauth-callback            # per-target scan flavor (only oauth-callback for now)
+auth: { type: none }            # for genuinely public endpoints
+callbackParams:                 # required when scan: oauth-callback
+  state: test-state-token
+  code: test-authorization-code
+```
+
+For Supabase apps, the one-line addition is `seedDir: ./supabase/functions` on your existing `api` target. ZAP's spider then discovers all your Edge Functions automatically.
+
+For OAuth callback security testing, add a third target with `scan: oauth-callback` — see the example in `casa-ready.yml.example` and the [V2 design spec](./docs/superpowers/specs/2026-05-01-v2-authenticated-oauth-scan-design.md) for the rationale.
+
 ### IDE autocomplete
 
 VS Code with the [YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) installed picks up CASA Ready's published JSON Schema automatically (via the `# yaml-language-server: $schema=...` directive that `casa-ready init` writes at the top of your config). You get inline field validation, autocomplete on every key, and schema-aware error messages.
@@ -185,7 +203,7 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 | **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
-| **V2** | Authenticated scan: ZAP context with session replay + OAuth flows | V1.1 ships + TAC findings reveal coverage gaps anonymous scans can't catch |
+| **V2** ✓ | Endpoint seeding (`seedDir`/`seedUrls`) + OAuth callback active-scanning | Shipped 2026-05-XX in `v0.4.0` |
 | later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |
 
