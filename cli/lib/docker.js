@@ -46,22 +46,27 @@ export function buildZapArgs({
   contextPath,
   scriptPath: _scriptPath = null,
   replacerHeaders = null,
+  containerName = null,
 }) {
   const script = FLAVOR_TO_SCRIPT[flavor];
   if (!script) {
     throw new Error(`Unknown scan flavor: ${flavor}`);
   }
 
-  const args = [
-    'run',
-    '--rm',
+  const args = ['run', '--rm'];
+  if (containerName) {
+    // --name surfaces the container in `docker ps` and Docker Desktop's
+    // Containers tab so users can find it while a long scan is mid-flight.
+    args.push('--name', containerName);
+  }
+  args.push(
     '-v',
     `${configsDir}:/zap/configs:ro`,
     '-v',
     `${outputDir}:/zap/wrk:rw`,
     '-v',
-    `${contextPath}:${ZAP_CONTEXT_PATH}:ro`,
-  ];
+    `${contextPath}:${ZAP_CONTEXT_PATH}:ro`
+  );
 
   // NOTE: V1 shipped with -c /zap/configs/casa-tier2.policy, but the file
   // we vendored is XML (ZAP GUI's policy export format). The -c flag for
@@ -128,8 +133,13 @@ function shellQuoteForShlex(s) {
   return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
 
-export function runZap(args, { spawnFn = nodeSpawn } = {}) {
+export function runZap(args, { spawnFn = nodeSpawn, log = (msg) => process.stdout.write(msg) } = {}) {
   return new Promise((resolve, reject) => {
+    // Surface the container name (if any) so users can find it in Docker Desktop.
+    const nameIdx = args.indexOf('--name');
+    if (nameIdx !== -1 && args[nameIdx + 1]) {
+      log(`Started ZAP container '${args[nameIdx + 1]}' (visible in Docker Desktop)\n`);
+    }
     const child = spawnFn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     if (child.stdout && typeof child.stdout.on === 'function') {
       child.stdout.on('data', (chunk) => process.stdout.write(chunk));
