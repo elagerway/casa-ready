@@ -6,11 +6,27 @@
   "bin": {
     "casa-ready": "./bin/casa-ready.js"
   },
+  "types": "./types/index.d.ts",
+  "files": [
+    "bin/",
+    "cli/",
+    "configs/",
+    "schemas/",
+    "types/",
+    "scripts/build-schema.js",
+    "casa-ready.yml.example",
+    "CHANGELOG.md",
+    "MIGRATION.md",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "test:integration": "RUN_INTEGRATION=1 vitest run tests/integration --passWithNoTests",
-    "smoke": "node bin/casa-ready.js --help"
+    "smoke": "node bin/casa-ready.js --help",
+    "build:schema": "node scripts/build-schema.js",
+    "prepublishOnly": "node scripts/build-schema.js"
   },
   "keywords": [
     "casa",
