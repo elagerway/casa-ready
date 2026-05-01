@@ -84,11 +84,20 @@ describe('ConfigSchema', () => {
     expect(() => ConfigSchema.parse(bad)).toThrow(/refreshSeconds.*positive/i);
   });
 
-  it('defaults refreshSeconds to 3300 when omitted', () => {
+  it('omits refreshSeconds when not supplied (v0.2.4: optional, no default)', () => {
+    // v0.2.4 dropped the .default(3300) — the field has no semantics in the
+    // new auth path, so leaving it undefined is more honest than auto-filling.
     const cfg = structuredClone(validConfig);
     delete cfg.envs.staging.targets[1].auth.refreshSeconds;
     const parsed = ConfigSchema.parse(cfg);
-    expect(parsed.envs.staging.targets[1].auth.refreshSeconds).toBe(3300);
+    expect(parsed.envs.staging.targets[1].auth.refreshSeconds).toBeUndefined();
+  });
+
+  it('still accepts refreshSeconds when explicitly set (backward compat with v0.2.x YAMLs)', () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[1].auth.refreshSeconds = 1800;
+    const parsed = ConfigSchema.parse(cfg);
+    expect(parsed.envs.staging.targets[1].auth.refreshSeconds).toBe(1800);
   });
 
   it('rejects an empty envs object (must contain at least one env)', () => {
