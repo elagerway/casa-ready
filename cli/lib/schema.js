@@ -33,18 +33,52 @@ const SupabaseJwtAuthSchema = z
   })
   .strict();
 
+const NoAuthSchema = z
+  .object({
+    type: z.literal('none'),
+  })
+  .strict();
+
 const AuthSchema = z.discriminatedUnion('type', [
   FormAuthSchema,
   SupabaseJwtAuthSchema,
+  NoAuthSchema,
 ]);
+
+const ScanFlavorSchema = z.enum(['casa', 'baseline', 'oauth-callback']);
+
+const CallbackParamsSchema = z.record(z.string(), z.string());
 
 const TargetSchema = z
   .object({
     name: z.string().min(1, 'target.name is required'),
     url: HttpUrl,
     auth: AuthSchema,
+    // V2 additions — all optional, backward-compatible.
+    seedUrls: z.array(z.string().min(1)).optional(),
+    seedDir: z.string().min(1).optional(),
+    scan: ScanFlavorSchema.optional(),
+    callbackParams: CallbackParamsSchema.optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((target, ctx) => {
+    if (target.scan === 'oauth-callback') {
+      if (!target.callbackParams || Object.keys(target.callbackParams).length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['callbackParams'],
+          message: 'callbackParams is required (and non-empty) when scan is oauth-callback',
+        });
+      }
+      if (target.auth?.type !== 'none') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['auth', 'type'],
+          message: "scan: 'oauth-callback' requires auth.type: 'none' (callback URLs are public)",
+        });
+      }
+    }
+  });
 
 const EnvSchema = z
   .object({
@@ -79,4 +113,13 @@ export const ConfigSchema = z
   .strict();
 
 // Re-exports for callers that want narrower types
-export { FormAuthSchema, SupabaseJwtAuthSchema, AuthSchema, TargetSchema, EnvSchema };
+export {
+  FormAuthSchema,
+  SupabaseJwtAuthSchema,
+  NoAuthSchema,
+  AuthSchema,
+  ScanFlavorSchema,
+  CallbackParamsSchema,
+  TargetSchema,
+  EnvSchema,
+};
