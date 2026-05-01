@@ -5,14 +5,15 @@ import { runScan } from '../cli/commands/scan.js';
 const HELP = `casa-ready — pass Google CASA Tier 2 without paying $15K+
 
 Usage:
-  casa-ready scan [options]
+  casa-ready init                              Generate casa-ready.yml interactively
+  casa-ready scan [options]                    Run a CASA-tuned scan
 
 Options:
   --env <staging|prod>     Which environment to scan (default: staging)
   --target <name>          Scan only the named target (default: all targets in env)
   --confirm-prod           Required when --env=prod (active scan can be destructive)
   --scan <casa|baseline>   Scan flavor (default: casa)
-  --config <path>          Path to casa-ready.config.js (default: ./casa-ready.config.js)
+  --config <path>          Path to casa-ready.yml (default: ./casa-ready.yml)
   --help, -h               Show this help
 
 Environment variables:
@@ -20,6 +21,7 @@ Environment variables:
   CASA_READY_PASS          Login password for the form-auth context (required)
 
 Examples:
+  casa-ready init                               # interactive scaffold for new projects
   casa-ready scan                               # all targets in staging
   casa-ready scan --target spa                  # only the 'spa' target
   casa-ready scan --env prod --confirm-prod     # all targets in prod
@@ -31,6 +33,25 @@ async function main(argv) {
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
     process.stdout.write(HELP);
     process.exit(subcommand ? 0 : 1);
+  }
+
+  if (subcommand === 'init') {
+    try {
+      const { runInit } = await import('../cli/commands/init.js');
+      const result = await runInit();
+      if (result.aborted) {
+        process.stdout.write('\nAborted. casa-ready.yml unchanged.\n');
+        process.exit(0);
+      }
+      process.stdout.write(`\n✓ Wrote ${result.written}\n`);
+      process.stdout.write(
+        `  Next: export CASA_READY_USER=...; export CASA_READY_PASS=...; casa-ready scan\n`
+      );
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`\n✗ ${err.message}\n`);
+      process.exit(1);
+    }
   }
 
   if (subcommand !== 'scan') {
