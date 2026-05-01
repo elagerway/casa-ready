@@ -1,7 +1,5 @@
 import { spawn as nodeSpawn } from 'node:child_process';
-
-const ZAP_IMAGE = 'zaproxy/zap-stable';
-const ZAP_CONTEXT_PATH = '/zap/context.xml';
+import { buildArgsFor } from './scan-flavors/index.js';
 
 // ZAP exit code semantics for zap-baseline.py / zap-full-scan.py:
 //   0 = no findings
@@ -13,30 +11,16 @@ const ZAP_CONTEXT_PATH = '/zap/context.xml';
 // kill) means ZAP itself broke.
 const ZAP_SCAN_COMPLETED_CODES = new Set([0, 1, 2, 3]);
 
-const FLAVOR_TO_SCRIPT = {
-  casa: 'zap-full-scan.py',
-  baseline: 'zap-baseline.py',
-};
-
 /**
  * Build the docker argv for a ZAP scan.
  *
- * The user-supplied `contextPath` is mounted to a fixed in-container path
- * (`/zap/context.xml`) — this keeps Docker Desktop on macOS happy (which only
- * shares a limited set of host paths) and avoids any : / , characters in the
- * host path breaking the volume mount string.
- *
- * `replacerHeaders` (v0.2.4): array of `{ name, value }` static headers to
- * inject into every in-scope request via ZAP's replacer addon. Used by the
- * supabase-jwt auth path to attach `Authorization: Bearer <jwt>` and
- * `apikey: <anon>` after our Node-side login. See the renderReplacerZArg
- * comment for the shlex-quoting nuance.
+ * Delegates to the scan-flavors dispatcher (cli/lib/scan-flavors/index.js).
+ * `buildZapArgs` is the public entry point; per-flavor argv construction
+ * lives in cli/lib/scan-flavors/{baseline,casa,oauth-callback}.js.
  *
  * `scriptPath` is preserved for backward compatibility with the form-auth
- * dispatcher's contract, but is unused as of v0.2.4 — the supabase-jwt path
- * no longer needs in-ZAP scripts. A future script-based auth would register
- * via the --hook mechanism, not via the (broken) `-z 'script.load(...)'`
- * pattern that v0.1–0.2.3 attempted.
+ * dispatcher's contract, but is unused as of v0.2.4. A future script-based
+ * auth would register via the --hook mechanism.
  */
 export function buildZapArgs({
   flavor,
@@ -47,95 +31,24 @@ export function buildZapArgs({
   scriptPath: _scriptPath = null,
   replacerHeaders = null,
   containerName = null,
+  seedFilePath = null,
+  callbackParams = null,
 }) {
-  const script = FLAVOR_TO_SCRIPT[flavor];
-  if (!script) {
-    throw new Error(`Unknown scan flavor: ${flavor}`);
-  }
-
-  const args = ['run', '--rm'];
-  if (containerName) {
-    // --name surfaces the container in `docker ps` and Docker Desktop's
-    // Containers tab so users can find it while a long scan is mid-flight.
-    args.push('--name', containerName);
-  }
-  args.push(
-    '-v',
-    `${configsDir}:/zap/configs:ro`,
-    '-v',
-    `${outputDir}:/zap/wrk:rw`,
-    '-v',
-    `${contextPath}:${ZAP_CONTEXT_PATH}:ro`
-  );
-
-  // NOTE: V1 shipped with -c /zap/configs/casa-tier2.policy, but the file
-  // we vendored is XML (ZAP GUI's policy export format). The -c flag for
-  // zap-baseline.py / zap-full-scan.py expects a tab-separated config
-  // (PLUGINID\tTHRESHOLD\tSTRENGTH per row). ZAP silently fell back to
-  // built-in defaults the entire time. Until a real ADA-tuned TSV policy
-  // ships, omit -c entirely so we don't ship a confusing warning every scan.
-  args.push(
-    ZAP_IMAGE,
-    script,
-    '-t',
+  return buildArgsFor(flavor, {
     targetUrl,
-    '-n',
-    ZAP_CONTEXT_PATH,
-    '-J',
-    'results.json',
-    '-x',
-    'results.xml',
-    '-r',
-    'results.html'
-  );
-
-  const replacerZArg = renderReplacerZArg(replacerHeaders);
-  if (replacerZArg) {
-    args.push('-z', replacerZArg);
-  }
-
-  return args;
-}
-
-/**
- * Render replacer-rule headers as a single -z value for zap-baseline.py.
- *
- * zap-baseline.py shlex-splits the -z value and appends each token to the ZAP
- * daemon CLI as raw args. So this function must produce a string that, when
- * shlex-split, yields a clean sequence of `-config key=value` token pairs.
- * Values that contain spaces (e.g. `Bearer <jwt>`) are wrapped in single
- * quotes so shlex preserves them as one token; embedded single quotes are
- * escaped using the canonical sh idiom `'\''`.
- *
- * The `enabled=true`, `regex=false`, empty `initiators` (= apply to all),
- * and `matchtype=REQ_HEADER` keys are required for ZAP to actually fire the
- * rule. Omitting any of them silently disables injection.
- */
-function renderReplacerZArg(replacerHeaders) {
-  if (!replacerHeaders || replacerHeaders.length === 0) return null;
-  const parts = [];
-  replacerHeaders.forEach((h, i) => {
-    const prefix = `replacer.full_list(${i})`;
-    parts.push('-config', shellQuoteForShlex(`${prefix}.description=casa-ready-${h.name}`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.enabled=true`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.matchtype=REQ_HEADER`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.matchstr=${h.name}`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.regex=false`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.replacement=${h.value}`));
-    parts.push('-config', shellQuoteForShlex(`${prefix}.initiators=`));
+    configsDir,
+    outputDir,
+    contextPath,
+    replacerHeaders,
+    containerName,
+    seedFilePath,
+    callbackParams,
   });
-  return parts.join(' ');
-}
-
-function shellQuoteForShlex(s) {
-  // Always wrap in single quotes; that survives shlex.split with any value.
-  // Embedded ' becomes '\'' (close, escaped quote, reopen).
-  return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
 
 export function runZap(args, { spawnFn = nodeSpawn, log = (msg) => process.stdout.write(msg) } = {}) {
   return new Promise((resolve, reject) => {
-    // Surface the container name (if any) so users can find it in Docker Desktop.
+    // Surface the container name so users can find it in Docker Desktop.
     const nameIdx = args.indexOf('--name');
     if (nameIdx !== -1 && args[nameIdx + 1]) {
       log(`Started ZAP container '${args[nameIdx + 1]}' (visible in Docker Desktop)\n`);
