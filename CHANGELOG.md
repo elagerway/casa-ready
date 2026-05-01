@@ -4,6 +4,29 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-XX
+
+### Added
+- **Endpoint seeding (`seedUrls` + `seedDir`).** ZAP's spider can't enumerate authenticated APIs that have no directory listing (Supabase Edge Functions, most gateways). New target fields let users specify additional seed URLs explicitly (`seedUrls: [...]`) or via a Supabase-aware shortcut that globs `./supabase/functions/` and appends each subdir to `target.url` (`seedDir: ./supabase/functions`). For Magpipe: one line covers 60+ Edge Functions.
+- **OAuth callback active scanning (`scan: oauth-callback`).** New per-target scan flavor wires `zap-api-scan.py` against a synthetic single-endpoint OpenAPI doc generated from `callbackParams`. ZAP's active scanner mutates the parameter values looking for SQL injection in `state`/`code`, XSS in error messages, open-redirect via `redirect_uri`, info leaks. Values are fuzz inputs — they don't need to be valid Google credentials.
+- **`auth.type: none`** for genuinely public endpoints (callback handlers, marketing pages). Skips Node-side login and skips replacer headers.
+- **`cli/lib/seed-urls.js`** — pure resolver for the seed URL list. Handles dedup, path-vs-URL prefixing, dotfile/underscore-prefixed dir skipping (Supabase `_shared` convention).
+- **`configs/zap/seed-spider-hook.py`** — Python `--hook` that reads `/zap/configs/seed-urls.txt` (mounted by the orchestrator) and calls `zap.spider.scan` per URL. The only viable mechanism — `zap-baseline.py` and `zap-full-scan.py` hardcode a single seed and ZAP daemon doesn't expose seed URLs as a CLI flag.
+
+### Changed
+- **`cli/lib/scan-flavors/` extracted from `cli/lib/docker.js`.** `buildZapArgs` was hitting its complexity tipping point at 170 lines with three different ZAP wrapper scripts to dispatch to. New per-flavor adapters (`baseline.js`, `casa.js`, `oauth-callback.js`) each own their argv construction; `buildZapArgs` becomes orchestration-only. Same dispatcher pattern as `cli/lib/auth/`. No behavior change to baseline/casa flavors.
+
+### Notes
+- Fully backward-compatible. All v0.3.x configs work unchanged.
+- Architecture rationale: the original V2 framing in the v0.2.0 CHANGELOG implied browser-driven session replay (Playwright) for OAuth flows. Investigation showed Magpipe's auth produces a Supabase JWT (already covered by the supabase-jwt path) and stores Gmail tokens server-side (endpoints that use them just take a regular Bearer header). The actual gap was **discovery** of the endpoints, not a different auth mechanism. Browser automation is deferred until a real customer needs it.
+- Discovery still has limits: `seedDir` works for any directory-per-endpoint convention. Apps with a different layout (e.g. all routes in one file) need explicit `seedUrls`. OpenAPI import is a future addition.
+
+### Deferred / known limitations
+- General per-target scan flavor for `casa`/`baseline` (currently only `oauth-callback` is per-target; `casa`/`baseline` fall through to `--scan`) — v0.4.1.
+- OpenAPI import — different feature; users with OpenAPI specs can derive `seedUrls` from them.
+- Real ADA-tuned ZAP policy file — still using OWASP Top 10 fallback. Carries forward.
+- Browser-driven session replay — out of scope until a real customer needs it.
+
 ## [0.3.1] — 2026-05-01
 
 ### Fixed
