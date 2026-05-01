@@ -7,6 +7,8 @@ import { getContext as defaultGetAuthContext } from '../lib/auth/index.js';
 import { buildZapArgs, runZap as defaultRunZap } from '../lib/docker.js';
 import { summarize } from '../lib/summarize.js';
 import { aggregateTargets } from '../lib/targets-summary.js';
+import { resolveSeedUrls as defaultResolveSeedUrls } from '../lib/seed-urls.js';
+import { renderOpenApiYaml } from '../lib/scan-flavors/oauth-callback.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -53,6 +55,19 @@ export async function runScan(opts, deps = {}) {
     },
     deleteContext = (p) => unlink(p).catch(() => {}),
     getAuthContext = defaultGetAuthContext,
+    resolveSeedUrls = defaultResolveSeedUrls,
+    writeSeedFile = async (urls, runId) => {
+      const tmpPath = path.join(tmpdir(), `casa-seeds-${runId}.txt`);
+      await writeFile(tmpPath, urls.join('\n') + '\n', 'utf8');
+      return tmpPath;
+    },
+    deleteSeedFile = (p) => unlink(p).catch(() => {}),
+    writeOpenApiFile = async (yamlBody, runId) => {
+      const tmpPath = path.join(tmpdir(), `casa-openapi-${runId}.yaml`);
+      await writeFile(tmpPath, yamlBody, 'utf8');
+      return tmpPath;
+    },
+    deleteOpenApiFile = (p) => unlink(p).catch(() => {}),
     mkdirOutput = async (envName, ts, targetName) => {
       const dir = path.join(process.cwd(), 'scan-output', envName, ts, targetName);
       await mkdir(dir, { recursive: true });
@@ -84,6 +99,11 @@ export async function runScan(opts, deps = {}) {
       writeContext,
       deleteContext,
       getAuthContext,
+      resolveSeedUrls,
+      writeSeedFile,
+      deleteSeedFile,
+      writeOpenApiFile,
+      deleteOpenApiFile,
       mkdirOutput,
       flavor,
     });
@@ -129,12 +149,19 @@ async function runOneTarget({
   writeContext,
   deleteContext,
   getAuthContext,
+  resolveSeedUrls,
+  writeSeedFile,
+  deleteSeedFile,
+  writeOpenApiFile,
+  deleteOpenApiFile,
   mkdirOutput,
   flavor,
 }) {
   const runId = `${target.name}-${Date.now()}`;
   let contextPath = null;
   let outputDir;
+  let seedFilePath = null;
+  let openApiPath = null;
 
   try {
     // Inside the try so an mkdirOutput failure (e.g. disk full, permission
@@ -150,8 +177,27 @@ async function runOneTarget({
     });
     contextPath = await writeContext(contextXml, runId);
 
+    // Per-target scan flavor override — falls back to global --scan flag.
+    const targetFlavor = target.scan ?? flavor;
+
+    // For baseline/casa: resolve seed URLs and write to a temp file the
+    // hook script will read. Skip for oauth-callback (uses synthetic OpenAPI).
+    if (targetFlavor !== 'oauth-callback') {
+      const seedUrls = await resolveSeedUrls(target);
+      // Only mount/write if we actually have extras beyond target.url.
+      if (seedUrls.length > 1) {
+        seedFilePath = await writeSeedFile(seedUrls, runId);
+      }
+    }
+
+    // For oauth-callback: synthesize the OpenAPI doc from callbackParams.
+    if (targetFlavor === 'oauth-callback') {
+      const yamlBody = renderOpenApiYaml({ url: target.url, params: target.callbackParams });
+      openApiPath = await writeOpenApiFile(yamlBody, runId);
+    }
+
     const args = buildZapArgs({
-      flavor,
+      flavor: targetFlavor,
       targetUrl: target.url,
       configsDir: CONFIGS_DIR,
       outputDir,
@@ -159,6 +205,9 @@ async function runOneTarget({
       scriptPath,
       replacerHeaders,
       containerName: `casa-ready-${target.name}-${runId}`,
+      seedFilePath,
+      callbackParams: target.callbackParams,
+      openApiPath,
     });
 
     await runZap(args);
@@ -180,6 +229,12 @@ async function runOneTarget({
   } finally {
     if (contextPath) {
       await deleteContext(contextPath);
+    }
+    if (seedFilePath) {
+      await deleteSeedFile(seedFilePath);
+    }
+    if (openApiPath) {
+      await deleteOpenApiFile(openApiPath);
     }
   }
 }
