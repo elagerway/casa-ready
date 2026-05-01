@@ -220,6 +220,14 @@ envs:
     );
     try {
       const deps = makeDeps();
+      // Track per-target writer calls to lock the lifecycle invariants:
+      // - oauth-callback target uses writeOpenApiFile (NOT writeSeedFile)
+      // - non-oauth-callback targets may use writeSeedFile but never writeOpenApiFile
+      // Mock both writers; capture call args for assertion at the end.
+      deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+      deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+      deps.writeSeedFile = vi.fn().mockResolvedValue('/tmp/casa-seeds-test.txt');
+      deps.deleteSeedFile = vi.fn().mockResolvedValue(undefined);
       // Track which scriptName each runZap call used (proxy for flavor)
       deps.runZap = vi.fn().mockImplementation(async (args) => {
         // Find the script name (token after the image name 'zaproxy/zap-stable')
@@ -248,6 +256,23 @@ envs:
         deps
       );
       expect(deps.runZap.scripts).toEqual(['zap-full-scan.py', 'zap-api-scan.py']);
+      // Lifecycle invariants: each writer/deleter is called exactly when
+      // the per-target flavor needs it. The oauth-callback target writes
+      // the synthetic OpenAPI file and doesn't write a seed file; the
+      // supabase-jwt target (no seedDir/seedUrls in the fixture) writes
+      // neither.
+      expect(deps.writeOpenApiFile).toHaveBeenCalledTimes(1);
+      expect(deps.deleteOpenApiFile).toHaveBeenCalledTimes(1);
+      expect(deps.writeSeedFile).not.toHaveBeenCalled();
+      expect(deps.deleteSeedFile).not.toHaveBeenCalled();
+      // The OpenAPI YAML body passed to writeOpenApiFile must contain the
+      // configured callbackParams as `example` values — proves the
+      // synthesizer ran with the right inputs before the writer was called.
+      // Note: YAML 1.1 treats bare `y` as boolean true, so the serializer
+      // quotes it as 'y' to disambiguate. We accept either form.
+      const yamlBody = deps.writeOpenApiFile.mock.calls[0][0];
+      expect(yamlBody).toContain('example: x');
+      expect(yamlBody).toMatch(/example: '?y'?/);
     } finally {
       await import('node:fs/promises').then((fs) =>
         fs.rm(tmpDir, { recursive: true, force: true })
