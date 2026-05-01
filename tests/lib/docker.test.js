@@ -150,6 +150,24 @@ describe('buildZapArgs', () => {
       })
     ).toThrow(/unknown scan flavor: fast/i);
   });
+
+  it('forwards openApiPath to the dispatcher (oauth-callback flavor needs it)', () => {
+    const args = buildZapArgs({
+      flavor: 'oauth-callback',
+      targetUrl: 'https://example.com/cb',
+      configsDir: '/abs/configs/zap',
+      outputDir: '/abs/out',
+      contextPath: '/tmp/ctx.xml',
+      callbackParams: { state: 'x' },
+      openApiPath: '/tmp/oauth-openapi-abc.yaml',
+    });
+    // The oauth-callback flavor mounts the OpenAPI doc at /zap/wrk/openapi.yaml.
+    // If openApiPath isn't forwarded from buildZapArgs to the dispatcher, the
+    // oauth-callback adapter throws "openApiPath is required". This test pins
+    // the contract at the docker.js layer so a future refactor of the
+    // destructure can't silently drop it.
+    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/wrk/openapi.yaml:ro');
+  });
 });
 
 function fakeChild(eventToFire) {
