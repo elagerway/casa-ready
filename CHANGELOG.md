@@ -4,6 +4,11 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-05-01
+
+### Fixed
+- **`runScan` default `configPath` was still `casa-ready.config.js`** (the v0.2.x filename), so users who ran `casa-ready scan` without `--config` got `Invalid YAML` errors when js-yaml choked on the JS source — instead of the v0.3.0 migration error pointing at `casa-ready init`. Now defaults to `casa-ready.yml`, matching the documented behavior in `--help`. Surfaced by the first real Magpipe dogfood with v0.3.0. Added a regression test (`tests/commands/scan.test.js`: "defaults configPath to ./casa-ready.yml") that exercises the un-injected default.
+
 ## [0.3.0] — 2026-05-01
 
 ### Added

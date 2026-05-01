@@ -14,7 +14,7 @@ const CONFIGS_DIR = path.join(PROJECT_ROOT, 'configs', 'zap');
 
 export async function runScan(opts, deps = {}) {
   const {
-    configPath = path.join(process.cwd(), 'casa-ready.config.js'),
+    configPath = path.join(process.cwd(), 'casa-ready.yml'),
     env = 'staging',
     target: targetFilter,
     confirmProd = false,

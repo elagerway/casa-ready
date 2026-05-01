@@ -54,6 +54,17 @@ describe('runScan (multi-target)', () => {
     });
   });
 
+  it('defaults configPath to ./casa-ready.yml (v0.3.1 regression — was .config.js)', async () => {
+    // Don't pass configPath; runScan should look for casa-ready.yml relative to
+    // process.cwd(). The test expectation: the not-found error names the YAML
+    // filename (proving the default landed on the right path), not the legacy
+    // .config.js filename.
+    const deps = makeDeps();
+    await expect(
+      runScan({ env: 'staging', confirmProd: false, flavor: 'casa' }, deps)
+    ).rejects.toThrow(/casa-ready\.yml not found/);
+  });
+
   it('runs all targets in the env when --target is not provided', async () => {
     const deps = makeDeps();
     const result = await runScan(
