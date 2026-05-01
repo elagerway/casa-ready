@@ -26,7 +26,7 @@ describe.skipIf(!RUN_INTEGRATION)('end-to-end smoke', () => {
 
   it('produces ZAP artifacts for each target when scanning juice-shop locally', async () => {
     const result = await runScan({
-      configPath: path.join(__dirname, 'juice-shop.config.js'),
+      configPath: path.join(__dirname, 'juice-shop.config.yml'),
       env: 'staging',
       confirmProd: false,
       flavor: 'baseline', // baseline is faster for smoke

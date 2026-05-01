@@ -1,0 +1,46 @@
+# casa-ready.yml
+# yaml-language-server: $schema=https://raw.githubusercontent.com/elagerway/casa-ready/main/schemas/casa-ready.schema.json
+#
+# Copy this file to `casa-ready.yml` (no `.example`) and edit for your app.
+# Add `casa-ready.yml` to your .gitignore if it contains URLs you don't want public.
+#
+# Credentials are NEVER stored here — set CASA_READY_USER and CASA_READY_PASS
+# environment variables instead. For Supabase apps, the anon key can be
+# referenced via ${SUPABASE_ANON_KEY} or your existing env var name.
+#
+# Quicker than hand-editing: run `casa-ready init` to generate this file
+# interactively.
+app: your-app
+
+envs:
+  staging:
+    targets:
+      - name: spa
+        url: https://staging.your-app.example
+        auth:
+          type: form
+          loginUrl: https://staging.your-app.example/login
+          # ZAP form-auth body. {%username%} / {%password%} are ZAP's substitution
+          # tokens (NOT mustache; ZAP itself replaces these at scan time).
+          loginRequestBody: 'email={%username%}&password={%password%}'
+          # For human reference — ZAP infers the actual field names from the
+          # key names in loginRequestBody above. Not currently injected.
+          usernameField: email
+          passwordField: password
+          # Regex matched against every response body. Avoid `<` and `&` in
+          # the pattern (they get XML-escaped, ZAP sees the entity).
+          loggedInIndicator: 'Sign out|/dashboard'
+
+      - name: api
+        url: https://your-project-ref.supabase.co/functions/v1
+        auth:
+          type: supabase-jwt
+          # Must contain /auth/v1/ — Supabase Auth REST endpoint
+          loginUrl: https://your-project-ref.supabase.co/auth/v1/token?grant_type=password
+          # Supabase project anon key (public). Inline the var name; do not
+          # paste the literal key. The ${} is expanded from process.env at
+          # scan time. casa-ready.yml itself stays safe to commit.
+          apiKey: ${SUPABASE_ANON_KEY}
+
+  prod:
+    targets: []  # add prod targets here once staging is dialed in
