@@ -52,22 +52,32 @@ envs:
         seedUrls:
           - /functions/v1/legacy-route
 
-      # OPTIONAL (V2 / v0.4.0+): OAuth callback active scan target.
-      # Set scan: oauth-callback to invoke ZAP's active scanner against a
-      # synthetic OpenAPI doc generated from callbackParams. ZAP mutates
-      # the example values looking for SQL injection in state/code, XSS in
-      # error messages, open-redirect via redirect_uri, info leaks, etc.
+      # ⚠️ EXPERIMENTAL (v0.4.0+): OAuth callback active-scan target.
       #
-      # callbackParams values do NOT need to be valid Google credentials.
-      # ZAP fuzzes them — they're just starting input for mutation.
-      - name: oauth-callback
-        url: https://your-app.example/auth/google/callback
-        auth: { type: none }   # public endpoint — Google's redirect arrives unauthenticated
-        scan: oauth-callback
-        callbackParams:
-          state: test-state-token
-          code: test-authorization-code
-          redirect_uri: https://your-app.example/dashboard
+      # The example below is the intended shape, but this flavor is currently
+      # known-broken in v0.4.x — see CHANGELOG and the v0.4.4 notes. Three
+      # hotfix releases (v0.4.1, v0.4.2, v0.4.3) peeled back layered issues
+      # but the deepest one is fundamental: zap-api-scan.py is built for
+      # whole-API scans, not single-endpoint OAuth callback fuzzing. Targets
+      # using `scan: oauth-callback` will fail at active-scan time with
+      # URL_NOT_IN_CONTEXT and the per-target summary will report the failure.
+      # The seedDir-based passive scan above DOES exercise these endpoints.
+      #
+      # Tracked for V2.1 — proper fix uses a custom --hook calling
+      # zap.ascan.scan(callback_url, ...) directly, bypassing zap-api-scan's
+      # host-root target normalization.
+      #
+      # Uncomment when V2.1 ships. The schema accepts the shape today; only
+      # the implementation is broken.
+      #
+      # - name: oauth-callback
+      #   url: https://your-app.example/auth/google/callback
+      #   auth: { type: none }   # public endpoint — Google's redirect arrives unauthenticated
+      #   scan: oauth-callback
+      #   callbackParams:
+      #     state: test-state-token
+      #     code: test-authorization-code
+      #     redirect_uri: https://your-app.example/dashboard
 
   prod:
     targets: []  # add prod targets here once staging is dialed in

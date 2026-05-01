@@ -2,7 +2,7 @@
 
 > An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
-**Status:** V2 (`v0.4.0`) — endpoint seeding (`seedDir`/`seedUrls`) + OAuth callback active-scanning. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V2 (`v0.4.4`) — endpoint seeding (`seedDir`/`seedUrls`) shipped; OAuth callback active-scanning experimental (V2.1 work). Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
 ## Why this exists
 
@@ -175,7 +175,7 @@ callbackParams:                 # required when scan: oauth-callback
 
 For Supabase apps, the one-line addition is `seedDir: ./supabase/functions` on your existing `api` target. ZAP's spider then discovers all your Edge Functions automatically.
 
-For OAuth callback security testing, add a third target with `scan: oauth-callback` — see the example in `casa-ready.yml.example` and the [V2 design spec](./docs/superpowers/specs/2026-05-01-v2-authenticated-oauth-scan-design.md) for the rationale.
+**OAuth callback active-scanning is experimental in v0.4.x** — see the CHANGELOG `[0.4.4]` entry for the known `URL_NOT_IN_CONTEXT` failure mode and the V2.1 tracking note. The schema accepts the shape today; only the implementation is broken. The seedDir-based passive scan above DOES exercise OAuth callback endpoints — just without active param fuzzing.
 
 ### IDE autocomplete
 
@@ -203,7 +203,8 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 | **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
-| **V2** ✓ | Endpoint seeding (`seedDir`/`seedUrls`) + OAuth callback active-scanning | Shipped 2026-05-XX in `v0.4.0` |
+| **V2** ◐ | Endpoint seeding (`seedDir`/`seedUrls`) ✓ shipped; OAuth callback active-scanning experimental | `v0.4.0`–`v0.4.4` 2026-05-01 |
+| **V2.1** | OAuth callback active-scan rewrite — custom `--hook` bypassing `zap-api-scan.py` host-root normalization | Next |
 | later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |
 

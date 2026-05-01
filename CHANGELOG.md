@@ -4,6 +4,18 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.4] — 2026-05-01
+
+### Changed
+- **`scan: oauth-callback` officially marked experimental.** Three hotfix releases (v0.4.1, v0.4.2, v0.4.3) peeled back layered issues but the deepest one is architectural: `zap-api-scan.py` is built for whole-API scans (it normalizes the active-scan target to host root and requires URLs in the imported context), not single-endpoint OAuth callback fuzzing. Targets using `scan: oauth-callback` currently fail at active-scan time with `URL_NOT_IN_CONTEXT`. The Magpipe V2 dogfood validated `seedDir`/`seedUrls` (the main feature) end-to-end but proved the callback flavor needs a different implementation strategy.
+- `casa-ready.yml.example`: oauth-callback target commented out with a `⚠️ EXPERIMENTAL` warning explaining the known issue and pointing at the V2.1 tracking note.
+- README + website roadmap row updated to reflect V2 partial completion (endpoint seeding ✓, oauth-callback experimental).
+
+### Notes
+- The proper fix (tracked for V2.1) skips `zap-api-scan.py` entirely. A custom Python `--hook` mounted into the existing `zap-baseline.py` invocation calls `zap.ascan.scan(callback_url, contextid=...)` directly with `callbackParams` as starting input, bypassing the wrapper's host-root normalization.
+- The schema field, dispatcher entry, and `renderOpenApiYaml` helper all stay in v0.4.4 — they're harmless, the implementation gets rewritten in V2.1, and no public surface needs to change for users when the fix ships.
+- The seedDir feature continues to work and is the V2 release's actual user-facing value. Magpipe's live dogfood went from 6 URLs scanned (v0.3.1) to 230 URLs (v0.4.x with seedDir) and surfaced 13 real findings invisible before.
+
 ## [0.4.3] — 2026-05-01
 
 ### Fixed
