@@ -113,4 +113,67 @@ describe('ConfigSchema', () => {
     bad.envs.staging.targets[0].auth.bogusField = true;
     expect(() => ConfigSchema.parse(bad)).toThrow(/unrecognized|bogusField/i);
   });
+
+  it('accepts a target with seedUrls (string[])', () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].seedUrls = ['/foo', 'https://staging.example.com/bar'];
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it('accepts a target with seedDir (string path)', () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].seedDir = './supabase/functions';
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it("accepts auth.type: 'none' for public endpoints", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it("accepts scan: 'oauth-callback' with callbackParams + auth.type: none", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x', code: 'y' };
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it("rejects scan: 'oauth-callback' without callbackParams", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    expect(() => ConfigSchema.parse(cfg)).toThrow(/callbackParams.*required.*oauth-callback/i);
+  });
+
+  it("rejects scan: 'oauth-callback' with empty callbackParams object", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = {};
+    expect(() => ConfigSchema.parse(cfg)).toThrow(/callbackParams.*required.*oauth-callback/i);
+  });
+
+  it("rejects scan: 'oauth-callback' with auth.type !== 'none'", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x', code: 'y' };
+    // auth.type is still 'form' from validConfig
+    expect(() => ConfigSchema.parse(cfg)).toThrow(/oauth-callback.*requires.*auth\.type.*none/i);
+  });
+
+  it("accepts scan: 'baseline' or 'casa' with no callbackParams (per-target override)", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].scan = 'baseline';
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+    cfg.envs.staging.targets[0].scan = 'casa';
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it('rejects unknown scan flavor', () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].scan = 'fast';
+    expect(() => ConfigSchema.parse(cfg)).toThrow(/Invalid enum value|fast/);
+  });
 });
