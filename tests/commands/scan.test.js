@@ -71,9 +71,9 @@ describe('runScan (multi-target)', () => {
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(deps.runZap).toHaveBeenCalledTimes(2); // spa + api
+    expect(deps.runZap).toHaveBeenCalledTimes(3); // spa + api + oauth-callback
     expect(result.exitCode).toBe(0);
-    expect(result.targets).toHaveLength(2);
+    expect(result.targets).toHaveLength(3);
     expect(result.failures).toHaveLength(0);
   });
 
@@ -109,13 +109,19 @@ describe('runScan (multi-target)', () => {
 
   it('uses zap-baseline.py when flavor=baseline (per-call)', async () => {
     const deps = makeDeps();
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'baseline' },
       deps
     );
-    for (const call of deps.runZap.mock.calls) {
-      expect(call[0]).toContain('zap-baseline.py');
-    }
+    // spa + api use opts.flavor=baseline; oauth-callback target overrides via
+    // its per-target `scan: oauth-callback` and uses zap-api-scan.py instead.
+    const scripts = deps.runZap.mock.calls.map((call) => {
+      const imgIdx = call[0].indexOf('zaproxy/zap-stable');
+      return call[0][imgIdx + 1];
+    });
+    expect(scripts).toEqual(['zap-baseline.py', 'zap-baseline.py', 'zap-api-scan.py']);
   });
 
   it('continues to next target when one target fails (best-effort)', async () => {
@@ -123,66 +129,78 @@ describe('runScan (multi-target)', () => {
       runZap: vi
         .fn()
         .mockRejectedValueOnce(new Error('docker exploded on spa'))
+        .mockResolvedValueOnce({ exitCode: 0 })
         .mockResolvedValueOnce({ exitCode: 0 }),
     });
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(deps.runZap).toHaveBeenCalledTimes(2);
+    expect(deps.runZap).toHaveBeenCalledTimes(3);
     expect(result.exitCode).toBe(1); // any failure → non-zero
     expect(result.failures).toHaveLength(1);
     expect(result.failures[0].name).toBe('spa');
     expect(result.failures[0].error.message).toMatch(/docker exploded/);
-    expect(result.targets).toHaveLength(2); // both attempted
+    expect(result.targets).toHaveLength(3); // all attempted
   });
 
   it('cleans up the temp context file for each target on success', async () => {
     const deps = makeDeps();
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    expect(deps.deleteContext).toHaveBeenCalledTimes(2);
+    expect(deps.deleteContext).toHaveBeenCalledTimes(3);
   });
 
   it('cleans up the temp context file even when a target fails', async () => {
     const deps = makeDeps({
       runZap: vi.fn().mockRejectedValue(new Error('boom')),
     });
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    // 2 targets, both failed, both cleaned up
-    expect(deps.deleteContext).toHaveBeenCalledTimes(2);
+    // 3 targets, all failed, all cleaned up
+    expect(deps.deleteContext).toHaveBeenCalledTimes(3);
   });
 
   it('writes a top-level summary with per-target sections', async () => {
     const deps = makeDeps();
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
-    // Per-target writeSummary calls: each target writes summary.md + results.txt
-    // = 4 per-target writes. Plus the 2 top-level (summary.md + results.txt) = 6.
-    expect(deps.writeSummary).toHaveBeenCalledTimes(6);
+    // Per-target writeSummary calls: each of 3 targets writes summary.md +
+    // results.txt = 6 per-target writes. Plus the 2 top-level (summary.md +
+    // results.txt) = 8.
+    expect(deps.writeSummary).toHaveBeenCalledTimes(8);
     // Verify the top-level calls go to the env+timestamp dir, not a per-target subdir
     const topLevelCalls = deps.writeSummary.mock.calls.filter(
-      ([p]) => !p.includes('/spa/') && !p.includes('/api/')
+      ([p]) => !p.includes('/spa/') && !p.includes('/api/') && !p.includes('/oauth-callback/')
     );
     expect(topLevelCalls).toHaveLength(2);
   });
 
   it('default mkdirOutput resolves under process.cwd() per target subdir', async () => {
     const deps = makeDeps({ mkdirOutput: undefined });
+    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
+    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
     );
     for (const target of result.targets) {
       expect(target.outputDir.startsWith(process.cwd())).toBe(true);
-      expect(target.outputDir).toMatch(/scan-output\/staging\/.*\/(spa|api)$/);
+      expect(target.outputDir).toMatch(/scan-output\/staging\/.*\/(spa|api|oauth-callback)$/);
     }
     // Cleanup the real dirs
     const { rm } = await import('node:fs/promises');

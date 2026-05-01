@@ -11,9 +11,10 @@ describe('loadConfig (YAML)', () => {
   it('loads a valid multi-target YAML config', async () => {
     const config = await loadConfig(fixturePath);
     expect(config.app).toBe('magpipe');
-    expect(config.envs.staging.targets).toHaveLength(2);
+    expect(config.envs.staging.targets).toHaveLength(3);
     expect(config.envs.staging.targets[0].name).toBe('spa');
     expect(config.envs.staging.targets[1].name).toBe('api');
+    expect(config.envs.staging.targets[2].name).toBe('oauth-callback');
   });
 
   it('throws a clear error when the file does not exist', async () => {
@@ -123,8 +124,8 @@ describe('resolveTargets', () => {
   it('returns all targets for a known env', async () => {
     const config = await loadConfig(fixturePath);
     const targets = resolveTargets(config, 'staging');
-    expect(targets).toHaveLength(2);
-    expect(targets.map((t) => t.name)).toEqual(['spa', 'api']);
+    expect(targets).toHaveLength(3);
+    expect(targets.map((t) => t.name)).toEqual(['spa', 'api', 'oauth-callback']);
   });
 
   it('throws on unknown env', async () => {
@@ -142,7 +143,7 @@ describe('resolveTargets', () => {
   it('throws when filter target name does not exist', async () => {
     const config = await loadConfig(fixturePath);
     expect(() => resolveTargets(config, 'staging', 'nope')).toThrow(
-      /target.*nope.*not found.*spa.*api/i
+      /target.*nope.*not found.*spa.*api.*oauth-callback/i
     );
   });
 });

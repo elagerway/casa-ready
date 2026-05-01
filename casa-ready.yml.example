@@ -41,6 +41,33 @@ envs:
           # paste the literal key. The ${} is expanded from process.env at
           # scan time. casa-ready.yml itself stays safe to commit.
           apiKey: ${SUPABASE_ANON_KEY}
+        # OPTIONAL (V2 / v0.4.0+): Supabase shortcut — globs subdirs of this
+        # path and seeds ZAP's spider with each subdir name appended to
+        # target.url. For Magpipe-style apps this single line covers all
+        # Edge Functions in one go (otherwise the spider can't find them
+        # because Supabase has no directory listing).
+        seedDir: ./supabase/functions
+        # OPTIONAL (V2 / v0.4.0+): explicit additional seed URLs for routes
+        # outside seedDir's coverage. Either full URLs or paths.
+        seedUrls:
+          - /functions/v1/legacy-route
+
+      # OPTIONAL (V2 / v0.4.0+): OAuth callback active scan target.
+      # Set scan: oauth-callback to invoke ZAP's active scanner against a
+      # synthetic OpenAPI doc generated from callbackParams. ZAP mutates
+      # the example values looking for SQL injection in state/code, XSS in
+      # error messages, open-redirect via redirect_uri, info leaks, etc.
+      #
+      # callbackParams values do NOT need to be valid Google credentials.
+      # ZAP fuzzes them — they're just starting input for mutation.
+      - name: oauth-callback
+        url: https://your-app.example/auth/google/callback
+        auth: { type: none }   # public endpoint — Google's redirect arrives unauthenticated
+        scan: oauth-callback
+        callbackParams:
+          state: test-state-token
+          code: test-authorization-code
+          redirect_uri: https://your-app.example/dashboard
 
   prod:
     targets: []  # add prod targets here once staging is dialed in
