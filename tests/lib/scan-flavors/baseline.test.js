@@ -48,7 +48,13 @@ describe('scan-flavors/baseline', () => {
     });
     expect(args).toContain('--name');
     expect(args).toContain('casa-ready-spa-runId');
-    expect(args).toContain('/tmp/seed-urls-abc.txt:/zap/configs/seed-urls.txt:ro');
+    // Mount path lives at /zap/ root, NOT inside /zap/configs (read-only).
+    // v0.4.1 regression catch: any path that starts with /zap/configs/ would
+    // fail at runtime with "read-only file system" — Docker can't make a
+    // mountpoint inside a :ro mount.
+    expect(args).toContain('/tmp/seed-urls-abc.txt:/zap/seed-urls.txt:ro');
+    const seedMount = args.find((a) => a.startsWith('/tmp/seed-urls-abc.txt:'));
+    expect(seedMount).not.toMatch(/:\/zap\/configs\//);
     expect(args).toContain('--hook');
     expect(args).toContain('/zap/configs/seed-spider-hook.py');
   });

@@ -1,6 +1,10 @@
 const ZAP_IMAGE = 'zaproxy/zap-stable';
 const ZAP_CONTEXT_PATH = '/zap/context.xml';
-const ZAP_SEED_FILE_PATH = '/zap/configs/seed-urls.txt';
+// Seed file lives at /zap/ root, NOT inside /zap/configs/ — that path is
+// mounted :ro and Docker can't create a mountpoint inside a read-only mount
+// ("read-only file system" error). v0.4.1 fix surfaced by the Magpipe dogfood.
+const ZAP_SEED_FILE_PATH = '/zap/seed-urls.txt';
+// Hook stays in /zap/configs (read-only is fine for an executable script).
 const ZAP_HOOK_PATH = '/zap/configs/seed-spider-hook.py';
 
 /**

@@ -19,7 +19,7 @@ import logging
 import os
 
 
-SEED_FILE = "/zap/configs/seed-urls.txt"
+SEED_FILE = "/zap/seed-urls.txt"
 
 
 def zap_started(zap, target):

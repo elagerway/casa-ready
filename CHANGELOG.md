@@ -4,6 +4,16 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-05-01
+
+### Fixed
+- **`seedDir`/`seedUrls` were broken in production: Docker rejected the seed-file mount with `read-only file system`.** `_common.js` mounted the temp seed file at `/zap/configs/seed-urls.txt`, but `/zap/configs` is mounted `:ro` — Docker can't make a mountpoint inside a read-only mount. Surfaced by the V2 dogfood scan against Magpipe (entire scan failed on first run with seedDir enabled). Moved the mount path to `/zap/seed-urls.txt` (root level, no parent-mount conflict). Updated `configs/zap/seed-spider-hook.py` to read from the new path. Added a regression test that asserts the seed mount path is NOT inside `/zap/configs/`.
+- **CLI now reports accurate scan status.** `bin/casa-ready.js` printed `✓ Scan complete.` unconditionally, even when all targets failed. Now branches on `result.failures.length`: `✓ Scan complete (N/N targets succeeded)`, `⚠ Scan partial`, or `✗ Scan failed: 0/N targets succeeded`. The TAC submission hint only appears on full success; partial/failed runs point at the summary file for triage instead.
+
+### Notes
+- v0.4.0 was technically still installable but its headline feature (endpoint seeding) couldn't run any scan against a non-trivial config. v0.4.1 is the version that actually works for V2.
+- This is exactly the "dogfood-then-patch" pattern that surfaced the v0.2.4 silent-failure bug — unit tests passed because no test exercised the actual `docker run` mount semantics. The new regression test (`/zap/configs/` exclusion check) closes that specific gap.
+
 ## [0.4.0] — 2026-05-XX
 
 ### Added

@@ -91,12 +91,26 @@ async function main(argv) {
       confirmProd: parsed.values['confirm-prod'],
       flavor: parsed.values.scan,
     });
-    process.stdout.write(`\n✓ Scan complete.\n`);
+    const failed = result.failures.length;
+    const total = result.targets.length;
+    if (failed === 0) {
+      process.stdout.write(`\n✓ Scan complete (${total}/${total} targets succeeded).\n`);
+    } else if (failed === total) {
+      process.stdout.write(`\n✗ Scan failed: 0/${total} targets succeeded.\n`);
+    } else {
+      process.stdout.write(`\n⚠ Scan partial: ${total - failed}/${total} targets succeeded.\n`);
+    }
     process.stdout.write(`  Artifacts: ${result.outputDir}\n`);
     process.stdout.write(`  Summary:   ${result.summaryPath}\n`);
-    process.stdout.write(
-      `  TAC submission: upload the contents of the artifacts directory to the CASA portal.\n`
-    );
+    if (failed === 0) {
+      process.stdout.write(
+        `  TAC submission: upload the contents of the artifacts directory to the CASA portal.\n`
+      );
+    } else {
+      process.stdout.write(
+        `  Inspect ${result.summaryPath} for per-target failure details before submitting.\n`
+      );
+    }
     process.exit(result.exitCode);
   } catch (err) {
     process.stderr.write(`\n✗ ${err.message}\n`);
