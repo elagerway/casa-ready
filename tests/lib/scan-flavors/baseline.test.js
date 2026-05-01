@@ -57,4 +57,26 @@ describe('scan-flavors/baseline', () => {
     const args = buildArgs(baseOpts);
     expect(args).not.toContain('--hook');
   });
+
+  it('renders multiple replacer headers with correct index suffixes (0, 1, 2)', () => {
+    const args = buildArgs({
+      ...baseOpts,
+      replacerHeaders: [
+        { name: 'Authorization', value: 'Bearer eyJabc' },
+        { name: 'apikey', value: 'public-anon-xyz' },
+        { name: 'X-Custom', value: 'third' },
+      ],
+    });
+    const zIdx = args.indexOf('-z');
+    const zValue = args[zIdx + 1];
+    // Each header gets its own indexed rule. The (0)/(1)/(2) suffixes are
+    // load-bearing — supabase-jwt always emits two headers, and ZAP needs
+    // each rule under a unique index or it silently overwrites them.
+    expect(zValue).toContain('replacer.full_list(0).matchstr=Authorization');
+    expect(zValue).toContain('replacer.full_list(1).matchstr=apikey');
+    expect(zValue).toContain('replacer.full_list(2).matchstr=X-Custom');
+    expect(zValue).toContain('replacer.full_list(0).replacement=Bearer eyJabc');
+    expect(zValue).toContain('replacer.full_list(1).replacement=public-anon-xyz');
+    expect(zValue).toContain('replacer.full_list(2).replacement=third');
+  });
 });

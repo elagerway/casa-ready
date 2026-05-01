@@ -101,5 +101,7 @@ function renderReplacerZArg(replacerHeaders) {
 }
 
 function shellQuoteForShlex(s) {
+  // Always wrap in single quotes; that survives shlex.split with any value.
+  // Embedded ' becomes '\'' (close, escaped quote, reopen).
   return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
