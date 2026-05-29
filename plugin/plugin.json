@@ -1,6 +1,6 @@
 {
   "name": "casa-ready",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Claude Code plugin for Google CASA Tier 2 security assessment workflow. Includes a bundled CLI (install separately via npm).",
   "author": {
     "name": "Snapsonic",

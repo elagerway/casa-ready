@@ -4,6 +4,25 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] — 2026-05-29
+
+### Fixed
+
+- **`casa-ready triage` no longer reports a false all-clear when targets fail to scan.** When every target is missing `results.json`, the CLI now prints "Triage incomplete: N target(s) failed to scan" and exits `2` instead of "You're clear" with exit `0`. Partial runs (some targets succeeded, some failed) keep their findings exit code but add a "⚠ Note: N target(s) failed to scan" warning so failures are never hidden.
+- **Rule-file paths are now consistent and correct under `--rules-dir`.** `triage.md` links to the actual rule path (repo-relative for the bundled KB, the real path for a custom `--rules-dir`), and `triage.json` now carries the full `ruleSourcePath` alongside the bare filename.
+- **Frontmatter parser tolerates CRLF line endings, a UTF-8 BOM, and a closing `---` at end-of-file** instead of crashing the whole rules KB. Added `.gitattributes` (`*.md text eol=lf`) to keep rule files LF in git.
+- **`riskCode`/`confidence` are guarded** (`null` instead of `NaN` when ZAP omits them), and `confidence` is now emitted in `triage.json`.
+
+### Changed
+
+- Category taxonomy is now a single source of truth (`cli/lib/triage/categories.js`), shared by both renderers, the classifier, and the rules-KB validation.
+- The `results.json` filename is a shared constant (`cli/lib/scan-output.js`) used by both the scan and triage commands, so the two cannot drift.
+- Internal cleanups: native `String.padEnd`, a single category-grouping pass in the markdown renderer, and `readdir({ withFileTypes: true })` in scan-run discovery.
+
+### Added
+
+- Rules-KB validation now enforces that no two rule files share a `zap_alert_name`, keeping alert-name fallback classification unambiguous.
+
 ## [0.5.0] — 2026-05-01
 
 ### Added
