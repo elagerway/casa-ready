@@ -87,6 +87,17 @@ export async function runTriage(opts = {}) {
   const generatedAt = new Date().toISOString();
   const rel = path.relative(cwd, runDir);
   const runId = rel.startsWith('..') ? runDir : rel;
+
+  // Attach ruleDisplayPath: repo-relative path when possible, else absolute.
+  for (const f of allClassifiedFindings) {
+    if (f.ruleSourcePath) {
+      const r = path.relative(cwd, f.ruleSourcePath);
+      f.ruleDisplayPath = r.startsWith('..') ? f.ruleSourcePath : r;
+    } else {
+      f.ruleDisplayPath = null;
+    }
+  }
+
   const aggregateInput = {
     runId,
     generatedAt,
@@ -114,5 +125,7 @@ export async function runTriage(opts = {}) {
     jsonPath,
     actionableCount,
     totalCount: allClassifiedFindings.length,
+    failures,
+    failureCount: failures.length,
   };
 }

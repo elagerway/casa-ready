@@ -25,9 +25,16 @@ export async function runTriageCommand(opts) {
     throw err;
   }
 
-  const { mdPath, jsonPath, actionableCount, totalCount } = result;
+  const { mdPath, jsonPath, actionableCount, totalCount, failureCount } = result;
   const rel = path.relative(process.cwd(), mdPath);
   const relMd = rel.startsWith('..') ? mdPath : rel;
+
+  if (totalCount === 0 && failureCount > 0) {
+    // All targets failed — no usable scan output at all
+    process.stderr.write(`✗ Triage incomplete: ${failureCount} target(s) failed to scan and produced no findings.\n`);
+    process.stdout.write(`Re-run \`casa-ready scan\` for the failed target(s) before proceeding to the TAC portal. (See the Failures section in ${relMd}.)\n`);
+    return { exitCode: 2 };
+  }
 
   if (totalCount === 0) {
     process.stdout.write(`\n✓ Triage complete. Wrote ${relMd} (0 findings).\n\n`);
@@ -37,6 +44,9 @@ export async function runTriageCommand(opts) {
 
   if (actionableCount === 0) {
     process.stdout.write(`\n✓ Triage complete. Wrote ${relMd} (${totalCount} findings, 0 Actionable).\n\n`);
+    if (failureCount > 0) {
+      process.stdout.write(`\n  ⚠ Note: ${failureCount} target(s) failed to scan and are NOT represented above — see the Failures section in ${relMd}.\n\n`);
+    }
     process.stdout.write(`Next step:\n`);
     process.stdout.write(`  → No code changes needed. Open Claude Code and ask "help me refine my CASA SAQ answers"\n`);
     process.stdout.write(`    — the casa-ready:triage-findings skill will personalize the answer templates.\n`);
@@ -48,6 +58,9 @@ export async function runTriageCommand(opts) {
   }
 
   process.stdout.write(`\n✓ Triage complete. Wrote ${relMd} (${totalCount} findings, ${actionableCount} Actionable).\n\n`);
+  if (failureCount > 0) {
+    process.stdout.write(`\n  ⚠ Note: ${failureCount} target(s) failed to scan and are NOT represented above — see the Failures section in ${relMd}.\n\n`);
+  }
   process.stdout.write(`Next step:\n`);
   process.stdout.write(`  → Open Claude Code in this repo and ask "triage my CASA findings"\n`);
   process.stdout.write(`    The casa-ready:triage-findings skill will read triage.md, locate the\n`);
