@@ -74,8 +74,9 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
       lines.push('');
       lines.push(`**Affected target:** ${f.targetName}`);
       lines.push(`**Instances:** ${f.instanceCount}`);
-      if (f.ruleSourceFile) {
-        lines.push(`**Rule:** configs/casa/rules/${f.ruleSourceFile}`);
+      if (f.ruleDisplayPath || f.ruleSourceFile) {
+        const rulePath = f.ruleDisplayPath ?? `configs/casa/rules/${f.ruleSourceFile}`;
+        lines.push(`**Rule:** ${rulePath}`);
       }
       if (f.suggestedSaqSection) {
         lines.push(`**Suggested SAQ section:** §${f.suggestedSaqSection} (${f.suggestedSaqSectionTitle ?? 'see rule file'})`);

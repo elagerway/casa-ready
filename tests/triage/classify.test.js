@@ -67,6 +67,17 @@ describe('classify', () => {
     expect(c2.targetName).toBe('web');
   });
 
+  // Fix #2: ruleSourcePath on matched findings
+  it('attaches ruleSourcePath (absolute path) to matched findings', async () => {
+    const results = await loadFixture('magpipe-results.json');
+    const classified = classify({ results, rulesIndex, targetName: 'api' });
+    const corsFinding = classified.findings.find((f) => f.alertName === 'Cross-Domain Misconfiguration');
+    expect(corsFinding.ruleSourcePath).toBeDefined();
+    expect(typeof corsFinding.ruleSourcePath).toBe('string');
+    expect(path.isAbsolute(corsFinding.ruleSourcePath)).toBe(true);
+    expect(corsFinding.ruleSourcePath).toMatch(/cross-domain-misconfiguration\.md$/);
+  });
+
   it('preserves evidence URIs in classified findings', async () => {
     const results = await loadFixture('magpipe-results.json');
     const classified = classify({ results, rulesIndex, targetName: 'api' });

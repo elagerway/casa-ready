@@ -7,15 +7,27 @@ import yaml from 'js-yaml';
  * Frontmatter is YAML between `---\n` and `\n---\n` at the very start of the file.
  */
 export function parseRuleFile(raw, sourceFile = '<unknown>') {
+  // Normalize: strip UTF-8 BOM if present, then normalise CRLF → LF.
+  if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1);
+  raw = raw.replace(/\r\n/g, '\n');
+
   if (!raw.startsWith('---\n')) {
     throw new Error(`Rule file ${sourceFile}: missing opening frontmatter delimiter (expected first line to be '---')`);
   }
-  const closeIdx = raw.indexOf('\n---\n', 4);
+  let closeIdx = raw.indexOf('\n---\n', 4);
+  let body;
   if (closeIdx === -1) {
-    throw new Error(`Rule file ${sourceFile}: missing closing frontmatter delimiter`);
+    // Accept closing delimiter at EOF with no trailing newline (e.g. "\n---" at end)
+    if (raw.endsWith('\n---')) {
+      closeIdx = raw.length - 4;
+      body = '';
+    } else {
+      throw new Error(`Rule file ${sourceFile}: missing closing frontmatter delimiter`);
+    }
+  } else {
+    body = raw.slice(closeIdx + 5);
   }
   const yamlBlock = raw.slice(4, closeIdx);
-  const body = raw.slice(closeIdx + 5);
 
   let frontmatter;
   try {
@@ -45,6 +57,7 @@ export async function loadRulesIndex(rulesDir) {
     const fullPath = path.join(rulesDir, filename);
     const raw = await readFile(fullPath, 'utf8');
     const parsed = parseRuleFile(raw, filename);
+    parsed.sourcePath = fullPath;
     all.push(parsed);
 
     const pluginIds = parsed.frontmatter.zap_plugin_ids ?? [];

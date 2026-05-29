@@ -34,6 +34,7 @@ export function renderJson({ runId, generatedAt, targetsIncluded, failures, find
       category: f.category,
       ruleSlug: f.ruleSlug,
       ruleSourceFile: f.ruleSourceFile,
+      ruleSourcePath: f.ruleSourcePath ?? null,
       suggestedSaqSection: f.suggestedSaqSection,
       suggestedSaqSectionTitle: f.suggestedSaqSectionTitle,
       evidence: (f.evidence || []).map((e) => ({

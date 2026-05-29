@@ -46,6 +46,23 @@ body
 `;
     expect(() => parseRuleFile(raw, 'bad-yaml.md')).toThrow();
   });
+
+  // Fix #3: CRLF tolerance
+  it('parses CRLF-delimited frontmatter without throwing', () => {
+    const raw = '---\r\nname: X\r\nslug: x\r\nzap_plugin_ids: []\r\nzap_alert_names: []\r\ncwe: null\r\ncategory: noise\r\nseverity_override: null\r\n---\r\nbody text here';
+    const parsed = parseRuleFile(raw, 'crlf-rule.md');
+    expect(parsed.frontmatter.name).toBe('X');
+    expect(parsed.body).toContain('body text here');
+  });
+
+  // Fix #3: closing --- at EOF with no trailing newline
+  it('parses frontmatter when closing --- is at EOF with no trailing newline', () => {
+    const raw = '---\nname: Y\nslug: y\nzap_plugin_ids: []\nzap_alert_names: []\ncwe: null\ncategory: noise\nseverity_override: null\n---';
+    const parsed = parseRuleFile(raw, 'no-trailing-newline.md');
+    expect(parsed.frontmatter.name).toBe('Y');
+    // body is empty/whitespace
+    expect(parsed.body.trim()).toBe('');
+  });
 });
 
 describe('loadRulesIndex', () => {
@@ -80,6 +97,34 @@ body B`, 'utf8');
       expect(index.byPluginId.get(10002).frontmatter.slug).toBe('rule-b');
       expect(index.byPluginId.get(10003).frontmatter.slug).toBe('rule-b');
       expect(index.all).toHaveLength(2);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Fix #2: sourcePath attached to each parsed rule
+  it('attaches an absolute sourcePath to each parsed rule', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'rules-test-'));
+    try {
+      await writeFile(path.join(dir, 'rule-a.md'), `---
+name: A
+slug: rule-a
+zap_plugin_ids: [20001]
+zap_alert_names: ["Alert A"]
+cwe: 200
+category: actionable
+saq_section: "1.1"
+saq_section_title: Sec
+severity_override: null
+---
+body A`, 'utf8');
+
+      const index = await loadRulesIndex(dir);
+      const rule = index.byPluginId.get(20001);
+      expect(rule).toBeDefined();
+      expect(typeof rule.sourcePath).toBe('string');
+      expect(path.isAbsolute(rule.sourcePath)).toBe(true);
+      expect(rule.sourcePath).toMatch(/rule-a\.md$/);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

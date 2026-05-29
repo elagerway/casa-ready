@@ -45,6 +45,7 @@ export function classify({ results, rulesIndex, targetName }) {
         suggestedSaqSection: rule?.frontmatter.saq_section ?? null,
         suggestedSaqSectionTitle: rule?.frontmatter.saq_section_title ?? null,
         ruleSourceFile: rule?.sourceFile ?? null,
+        ruleSourcePath: rule?.sourcePath ?? null,
       });
     }
   }
