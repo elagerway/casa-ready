@@ -1,0 +1,15 @@
+# Plugin distribution lives in .claude plugin install path, not npm
+plugin/
+
+# Dev/repo-only
+docs/
+scan-output/
+.worktrees/
+.claude/
+tests/
+*.test.js
+
+# IDE / OS junk
+.DS_Store
+.vscode/
+.idea/
