@@ -95,7 +95,7 @@ async function main(argv) {
       const { exitCode } = await runTriageCommand({ scanRunPath, target, rulesDir, json });
       process.exit(exitCode);
     } catch (err) {
-      process.stderr.write(`✗ ${err.message}\n`);
+      process.stderr.write(`\n✗ ${err.message}\n`);
       process.exit(1);
     }
   }

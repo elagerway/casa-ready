@@ -26,7 +26,8 @@ export async function runTriageCommand(opts) {
   }
 
   const { mdPath, jsonPath, actionableCount, totalCount } = result;
-  const relMd = path.relative(process.cwd(), mdPath);
+  const rel = path.relative(process.cwd(), mdPath);
+  const relMd = rel.startsWith('..') ? mdPath : rel;
 
   if (totalCount === 0) {
     process.stdout.write(`\n✓ Triage complete. Wrote ${relMd} (0 findings).\n\n`);

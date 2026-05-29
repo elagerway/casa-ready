@@ -49,7 +49,12 @@ export async function runTriage(opts = {}) {
 
   for (const entry of entries) {
     const subPath = path.join(runDir, entry);
-    const s = await stat(subPath);
+    let s;
+    try {
+      s = await stat(subPath);
+    } catch {
+      continue; // broken symlink or unreadable entry — skip
+    }
     if (!s.isDirectory()) continue;
     if (targetFilter && entry !== targetFilter) continue;
 
@@ -80,8 +85,10 @@ export async function runTriage(opts = {}) {
   }
 
   const generatedAt = new Date().toISOString();
+  const rel = path.relative(cwd, runDir);
+  const runId = rel.startsWith('..') ? runDir : rel;
   const aggregateInput = {
-    runId: path.relative(cwd, runDir),
+    runId,
     generatedAt,
     targetsIncluded,
     failures,
