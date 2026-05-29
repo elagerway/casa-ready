@@ -1,0 +1,60 @@
+{
+  "@version": "2.14.0",
+  "@generated": "Thu, 1 May 2026 22:35:47",
+  "site": [
+    {
+      "@name": "https://hldlhskdpnyrqemyxidg.supabase.co",
+      "@host": "hldlhskdpnyrqemyxidg.supabase.co",
+      "@port": "443",
+      "@ssl": "true",
+      "alerts": [
+        {
+          "pluginid": "10098",
+          "alert": "Cross-Domain Misconfiguration",
+          "name": "Cross-Domain Misconfiguration",
+          "riskcode": "2",
+          "confidence": "2",
+          "riskdesc": "Medium",
+          "desc": "<p>Web browser data loading may be possible, due to a Cross Origin Resource Sharing (CORS) misconfiguration on the web server.</p>",
+          "instances": [
+            { "uri": "https://hldlhskdpnyrqemyxidg.supabase.co/functions/v1/users", "method": "OPTIONS", "param": "Access-Control-Allow-Origin" }
+          ],
+          "count": "1",
+          "solution": "<p>Ensure that sensitive data is not available in an unauthenticated manner.</p>",
+          "cweid": "264"
+        },
+        {
+          "pluginid": "90022",
+          "alert": "Application Error Disclosure",
+          "name": "Application Error Disclosure",
+          "riskcode": "2",
+          "confidence": "2",
+          "riskdesc": "Medium",
+          "desc": "<p>This page contains an error/warning message.</p>",
+          "instances": [
+            { "uri": "https://hldlhskdpnyrqemyxidg.supabase.co/functions/v1/feed", "method": "GET", "param": "" },
+            { "uri": "https://hldlhskdpnyrqemyxidg.supabase.co/functions/v1/profile", "method": "GET", "param": "" }
+          ],
+          "count": "2",
+          "solution": "<p>Review the source code.</p>",
+          "cweid": "200"
+        },
+        {
+          "pluginid": "10017",
+          "alert": "Cross-Domain JavaScript Source File Inclusion",
+          "name": "Cross-Domain JavaScript Source File Inclusion",
+          "riskcode": "0",
+          "confidence": "2",
+          "riskdesc": "Informational",
+          "desc": "<p>The page includes one or more script files from a third-party domain.</p>",
+          "instances": [
+            { "uri": "https://js.stripe.com/v3/", "method": "GET", "param": "" }
+          ],
+          "count": "1",
+          "solution": "<p>Ensure JavaScript source files are loaded from only trusted sources.</p>",
+          "cweid": "829"
+        }
+      ]
+    }
+  ]
+}

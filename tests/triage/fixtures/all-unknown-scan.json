@@ -1,0 +1,29 @@
+{
+  "@version": "2.14.0",
+  "@generated": "Thu, 1 May 2026 22:35:47",
+  "site": [
+    {
+      "@name": "https://example.com",
+      "@host": "example.com",
+      "@port": "443",
+      "@ssl": "true",
+      "alerts": [
+        {
+          "pluginid": "99999",
+          "alert": "Some Unmapped Alert",
+          "name": "Some Unmapped Alert",
+          "riskcode": "1",
+          "confidence": "2",
+          "riskdesc": "Low",
+          "desc": "<p>Description.</p>",
+          "instances": [
+            { "uri": "https://example.com/foo", "method": "GET", "param": "" }
+          ],
+          "count": "1",
+          "solution": "<p>Fix.</p>",
+          "cweid": "200"
+        }
+      ]
+    }
+  ]
+}
