@@ -1,0 +1,3 @@
+# Rule files and markdown are parsed line-by-line; force LF so the
+# frontmatter parser is not tripped by CRLF on Windows checkouts.
+*.md text eol=lf
