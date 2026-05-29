@@ -7,13 +7,21 @@ const HELP = `casa-ready — open-source toolkit for Google CASA Tier 2
 Usage:
   casa-ready init                              Generate casa-ready.yml interactively
   casa-ready scan [options]                    Run a CASA-tuned scan
+  casa-ready triage [path] [options]           Classify scan findings into Actionable / SAQ-explainable / Noise
 
-Options:
+Scan options:
   --env <staging|prod>     Which environment to scan (default: staging)
   --target <name>          Scan only the named target (default: all targets in env)
   --confirm-prod           Required when --env=prod (active scan can be destructive)
   --scan <casa|baseline>   Scan flavor (default: casa)
   --config <path>          Path to casa-ready.yml (default: ./casa-ready.yml)
+  --help, -h               Show this help
+
+Triage options:
+  [path]                   Path to a specific scan run directory (default: auto-detect latest)
+  --target <name>          Only triage findings for this target
+  --rules-dir <path>       Override built-in rules directory
+  --json                   Also write triage.json alongside triage.md
   --help, -h               Show this help
 
 Environment variables:
@@ -26,6 +34,8 @@ Examples:
   casa-ready scan --target spa                  # only the 'spa' target
   casa-ready scan --env prod --confirm-prod     # all targets in prod
   casa-ready scan --scan baseline               # passive scan only (faster)
+  casa-ready triage                             # classify latest scan findings
+  casa-ready triage --json                      # also emit triage.json
 `;
 
 async function main(argv) {
@@ -50,6 +60,42 @@ async function main(argv) {
       process.exit(0);
     } catch (err) {
       process.stderr.write(`\n✗ ${err.message}\n`);
+      process.exit(1);
+    }
+  }
+
+  if (subcommand === 'triage') {
+    let triageParsed;
+    try {
+      triageParsed = parseArgs({
+        args: argv.slice(1),
+        options: {
+          target: { type: 'string' },
+          'rules-dir': { type: 'string' },
+          json: { type: 'boolean', default: false },
+          help: { type: 'boolean', short: 'h' },
+        },
+        allowPositionals: true,
+      });
+    } catch (err) {
+      process.stderr.write(`${err.message}\n\n${HELP}`);
+      process.exit(1);
+    }
+
+    if (triageParsed.values.help) {
+      process.stdout.write(HELP);
+      process.exit(0);
+    }
+
+    const scanRunPath = triageParsed.positionals[0];
+    const { target, 'rules-dir': rulesDir, json } = triageParsed.values;
+
+    try {
+      const { runTriageCommand } = await import('../cli/commands/triage.js');
+      const { exitCode } = await runTriageCommand({ scanRunPath, target, rulesDir, json });
+      process.exit(exitCode);
+    } catch (err) {
+      process.stderr.write(`✗ ${err.message}\n`);
       process.exit(1);
     }
   }
