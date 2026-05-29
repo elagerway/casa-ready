@@ -4,6 +4,27 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-01
+
+### Added
+
+- **`casa-ready:triage-findings` Claude Code plugin skill** — first skill of the casa-ready plugin. Reads `triage.md` produced by the new `triage` CLI command, locates Actionable findings in the user's code, and drafts concrete patches. For SAQ-explainable findings, produces ready-to-paste SAQ answer text personalized with the user's specific evidence. Requires (vendored) `superpowers:systematic-debugging` and `superpowers:test-driven-development` for security-relevant fixes.
+- **`casa-ready triage` CLI command** — reads `scan-output/<env>/<ts>/results.json` from each target, classifies findings against the new markdown rules KB at `configs/casa/rules/`, and writes one aggregated `triage.md` (plus optional `triage.json` with `--json`) at the run root. Exit code 0/1/2 indicates clean / Actionable findings present / triage failed.
+- **Markdown rules KB at `configs/casa/rules/`** — 9 rule files covering Cross-Domain Misconfiguration, Application Error Disclosure, Information Disclosure (Suspicious Comments + Sensitive Info in URL), Cross-Domain JavaScript Inclusion, CSP/HSTS/X-Content-Type-Options/X-Frame-Options headers. Each file has YAML frontmatter (category, SAQ section, ZAP plugin IDs) + body sections (What ZAP detects, Why this is..., Standard fix pattern, How to spot, SAQ answer template). Adding new alert coverage = one PR adding a markdown file.
+- **`plugin/` directory** — Claude Code plugin distribution. Contains plugin manifest, plugin README, the `triage-findings` skill, and vendored copies of the two superpowers skills it requires. Excluded from the npm tarball via `.npmignore`.
+- **`scripts/sync-vendored.sh`** — refresh vendored superpowers skills from upstream. Run manually before each release.
+- **`scan` next-step hint** — successful `casa-ready scan` runs now print a "Next step: `casa-ready triage`" pointer.
+
+### Changed
+
+- README rewritten with plugin-primary framing: "Claude Code plugin for CASA Tier 2 (with bundled CLI for CI)" instead of "open-source toolkit." CI users get a "Using the CLI standalone in CI" section.
+- Bumped version to `0.5.0`.
+
+### Notes
+
+- Plugin install path for v0.5.0 is direct git URL: `claude plugin install https://github.com/elagerway/casa-ready`. Marketplace submission planned for v0.5.x.
+- Vendored superpowers skills live under `plugin/skills/_vendored/` — clearly namespaced to avoid conflicts if the user separately installs the upstream superpowers plugin.
+
 ## [0.4.4] — 2026-05-01
 
 ### Changed
