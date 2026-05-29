@@ -1,4 +1,5 @@
-const CATEGORY_ORDER = ['actionable', 'saq-explainable', 'noise', 'unknown'];
+import { CATEGORY_ORDER } from './categories.js';
+
 const CATEGORY_HEADING = {
   actionable: '## Actionable',
   'saq-explainable': '## SAQ-explainable',
@@ -41,6 +42,9 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
     return lines.join('\n');
   }
 
+  // Build single grouping so we don't filter findings twice (summary + per-section loops)
+  const byCat = new Map(CATEGORY_ORDER.map((c) => [c, findings.filter((f) => f.category === c)]));
+
   // Summary table
   lines.push('## Summary');
   lines.push('');
@@ -48,7 +52,7 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
   lines.push('|-----------------------|---------------|-----------|-----------------|');
   const counts = {};
   for (const cat of CATEGORY_ORDER) {
-    const matching = findings.filter((f) => f.category === cat);
+    const matching = byCat.get(cat);
     counts[cat] = {
       unique: matching.length,
       instances: matching.reduce((s, f) => s + (f.instanceCount || 0), 0),
@@ -56,13 +60,13 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
   }
   for (const cat of CATEGORY_ORDER) {
     const c = counts[cat];
-    lines.push(`| ${pad(labelFor(cat), 21)} | ${pad(String(c.unique), 13)} | ${pad(String(c.instances), 9)} | ${pad(CATEGORY_ACTION[cat], 15)} |`);
+    lines.push(`| ${labelFor(cat).padEnd(21)} | ${String(c.unique).padEnd(13)} | ${String(c.instances).padEnd(9)} | ${CATEGORY_ACTION[cat].padEnd(15)} |`);
   }
   lines.push('');
 
   // Per-category sections
   for (const cat of CATEGORY_ORDER) {
-    const matching = findings.filter((f) => f.category === cat);
+    const matching = byCat.get(cat);
     if (matching.length === 0) continue;
     lines.push(CATEGORY_HEADING[cat]);
     lines.push('');
@@ -151,8 +155,4 @@ function labelFor(cat) {
   if (cat === 'saq-explainable') return 'SAQ-explainable';
   if (cat === 'noise') return 'Noise (third-party)';
   return 'Unknown';
-}
-
-function pad(s, n) {
-  return s.length >= n ? s : s + ' '.repeat(n - s.length);
 }

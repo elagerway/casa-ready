@@ -1,3 +1,5 @@
+import { UNKNOWN_CATEGORY } from './categories.js';
+
 /**
  * Classify a single target's ZAP results.json against the rules index.
  *
@@ -33,15 +35,15 @@ export function classify({ results, rulesIndex, targetName }) {
         alertName: alert.alert,
         pluginId,
         cweId: alert.cweid ? parseInt(alert.cweid, 10) : null,
-        riskCode: parseInt(alert.riskcode, 10),
-        confidence: parseInt(alert.confidence, 10),
+        riskCode: alert.riskcode ? parseInt(alert.riskcode, 10) : null,
+        confidence: alert.confidence ? parseInt(alert.confidence, 10) : null,
         instanceCount: parseInt(alert.count, 10) || instances.length,
         evidence,
         rawSolution: alert.solution || '',
         rawDescription: alert.desc || '',
         // Rule-derived fields (null if no rule matches)
         ruleSlug: rule?.frontmatter.slug ?? null,
-        category: rule?.frontmatter.category ?? 'unknown',
+        category: rule?.frontmatter.category ?? UNKNOWN_CATEGORY,
         suggestedSaqSection: rule?.frontmatter.saq_section ?? null,
         suggestedSaqSectionTitle: rule?.frontmatter.saq_section_title ?? null,
         ruleSourceFile: rule?.sourceFile ?? null,

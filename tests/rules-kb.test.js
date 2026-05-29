@@ -1,12 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { loadRulesIndex } from '../cli/lib/triage/rules-loader.js';
+import { RULE_CATEGORIES } from '../cli/lib/triage/categories.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RULES_DIR = path.join(__dirname, '..', 'configs', 'casa', 'rules');
 
-const VALID_CATEGORIES = new Set(['actionable', 'saq-explainable', 'noise']);
+const VALID_CATEGORIES = new Set(RULE_CATEGORIES);
 
 describe('configs/casa/rules/ KB validation', () => {
   let index;
@@ -80,5 +81,24 @@ describe('configs/casa/rules/ KB validation', () => {
   it('no two rule files share a ZAP plugin ID (loadRulesIndex enforces this)', async () => {
     // loadRulesIndex throws on duplicate; reaching beforeAll means we passed
     expect(index.byPluginId.size).toBeGreaterThan(0);
+  });
+
+  // Item #8: enforce alert-name uniqueness so byAlertName fallback is never ambiguous
+  it('no two rule files share a zap_alert_name entry', () => {
+    // Build a Map<alertName, sourceFile[]> across all rules
+    const nameToFiles = new Map();
+    for (const rule of index.all) {
+      const names = rule.frontmatter.zap_alert_names ?? [];
+      for (const name of names) {
+        if (!nameToFiles.has(name)) nameToFiles.set(name, []);
+        nameToFiles.get(name).push(rule.sourceFile);
+      }
+    }
+    for (const [alertName, files] of nameToFiles) {
+      expect(
+        files.length,
+        `Alert name "${alertName}" appears in multiple rule files: ${files.join(', ')}`
+      ).toBe(1);
+    }
   });
 });

@@ -1,4 +1,4 @@
-const CATEGORIES = ['actionable', 'saq-explainable', 'noise', 'unknown'];
+import { CATEGORY_ORDER } from './categories.js';
 
 /**
  * Render aggregated classified findings into a structured object suitable for JSON.stringify.
@@ -6,7 +6,7 @@ const CATEGORIES = ['actionable', 'saq-explainable', 'noise', 'unknown'];
  */
 export function renderJson({ runId, generatedAt, targetsIncluded, failures, findings }) {
   const byCategory = {};
-  for (const cat of CATEGORIES) {
+  for (const cat of CATEGORY_ORDER) {
     const matching = findings.filter((f) => f.category === cat);
     byCategory[cat] = {
       unique: matching.length,
@@ -30,6 +30,7 @@ export function renderJson({ runId, generatedAt, targetsIncluded, failures, find
       pluginId: f.pluginId,
       cweId: f.cweId,
       riskCode: f.riskCode,
+      confidence: f.confidence,
       instanceCount: f.instanceCount,
       category: f.category,
       ruleSlug: f.ruleSlug,
