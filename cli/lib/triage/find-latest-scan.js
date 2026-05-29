@@ -1,4 +1,4 @@
-import { readdir, stat } from 'node:fs/promises';
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -6,44 +6,39 @@ import path from 'node:path';
  * Timestamps are ISO strings with `:` and `.` replaced by `-`, so lexicographic sort
  * matches chronological order.
  *
+ * Uses readdir with { withFileTypes: true } to avoid per-entry stat syscalls.
+ * Note: withFileTypes + isDirectory() does NOT follow symlinks; a symlinked dir
+ * reports as isSymbolicLink(). Machine-written scan output dirs are never symlinks,
+ * so this is an acceptable trade-off.
+ *
  * @param {string} cwd — directory containing scan-output/
  * @returns {Promise<string|null>} absolute path to newest run dir, or null if none
  */
 export async function findLatestScanRun(cwd = process.cwd()) {
   const scanRoot = path.join(cwd, 'scan-output');
-  let envEntries;
+  let envDirents;
   try {
-    envEntries = await readdir(scanRoot);
+    envDirents = await readdir(scanRoot, { withFileTypes: true });
   } catch (err) {
     if (err.code === 'ENOENT') return null;
     throw err;
   }
 
   const candidates = [];
-  for (const env of envEntries) {
-    const envPath = path.join(scanRoot, env);
-    let s;
-    try {
-      s = await stat(envPath);
-    } catch {
-      continue;
-    }
-    if (!s.isDirectory()) continue;
+  for (const envDirent of envDirents) {
+    if (!envDirent.isDirectory()) continue;
 
-    let runEntries;
+    const envPath = path.join(scanRoot, envDirent.name);
+    let runDirents;
     try {
-      runEntries = await readdir(envPath);
+      runDirents = await readdir(envPath, { withFileTypes: true });
     } catch {
       continue;
     }
-    for (const ts of runEntries) {
-      const runPath = path.join(envPath, ts);
-      try {
-        const rs = await stat(runPath);
-        if (rs.isDirectory()) candidates.push({ path: runPath, ts });
-      } catch {
-        continue;
-      }
+    for (const runDirent of runDirents) {
+      if (!runDirent.isDirectory()) continue;
+      const runPath = path.join(envPath, runDirent.name);
+      candidates.push({ path: runPath, ts: runDirent.name });
     }
   }
 
