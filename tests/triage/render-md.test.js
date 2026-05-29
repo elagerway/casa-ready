@@ -121,4 +121,102 @@ describe('renderMarkdown', () => {
     expect(idxNoise).toBeGreaterThan(idxAct);
     expect(idxUnk).toBeGreaterThan(idxNoise);
   });
+
+  // Regression: Bug 1 — well-formed finding headings for all 4 cweId/pluginId combinations
+  it('renders well-formed ### headings for all cweId/pluginId combinations', () => {
+    const basefinding = {
+      targetName: 'api',
+      alertName: 'Alert',
+      riskCode: 2,
+      instanceCount: 1,
+      category: 'actionable',
+      ruleSlug: null,
+      ruleSourceFile: null,
+      suggestedSaqSection: null,
+      suggestedSaqSectionTitle: null,
+      evidence: [{ uri: 'https://example.com', method: 'GET', param: '', evidence: '' }],
+    };
+
+    // both cweId and pluginId present
+    const mdBoth = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [{ ...basefinding, cweId: 264, pluginId: 10098 }],
+    });
+
+    // cweId only (no pluginId)
+    const mdCweOnly = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [{ ...basefinding, cweId: 200, pluginId: null }],
+    });
+
+    // pluginId only (no cweId — null)
+    const mdPluginOnly = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [{ ...basefinding, cweId: null, pluginId: 10098 }],
+    });
+
+    // neither (both null)
+    const mdNeither = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [{ ...basefinding, cweId: null, pluginId: null }],
+    });
+
+    // pluginId only with cweId=0 (ZAP emits cweid="0" for some alerts)
+    const mdCweZero = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [{ ...basefinding, cweId: 0, pluginId: 10098 }],
+    });
+
+    // Extract the ### heading lines
+    const heading = (md) => md.split('\n').find((l) => l.startsWith('### Alert'));
+
+    expect(heading(mdBoth)).toBe('### Alert (CWE-264, plugin 10098)');
+    expect(heading(mdCweOnly)).toBe('### Alert (CWE-200)');
+    expect(heading(mdPluginOnly)).toBe('### Alert (plugin 10098)');
+    expect(heading(mdNeither)).toBe('### Alert');
+    expect(heading(mdCweZero)).toBe('### Alert (plugin 10098)');
+
+    // Additional negative assertions: no malformed headings
+    // No leading comma in bracket, no stray unmatched closing paren
+    for (const md of [mdBoth, mdCweOnly, mdPluginOnly, mdNeither, mdCweZero]) {
+      const h = heading(md);
+      expect(h).not.toMatch(/\(,/);               // no "(, ..."
+      expect(h).not.toMatch(/, plugin.*\)[^(]/);  // no ", plugin N)" without an opening "("
+      // heading either ends with no paren, or has balanced parens
+      const opens = (h.match(/\(/g) || []).length;
+      const closes = (h.match(/\)/g) || []).length;
+      expect(opens).toBe(closes);
+    }
+  });
+
+  // Regression: Bug 2 — failures-only run must NOT emit "You're clear" / "Proceed to TAC portal upload"
+  it('failures-only run emits re-run message, not "You\'re clear"', () => {
+    const md = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: [],
+      failures: [{ name: 'oauth-callback', error: 'URL_NOT_IN_CONTEXT', stage: 'runZap' }],
+      findings: [],
+    });
+
+    expect(md).not.toContain("You're clear");
+    expect(md).not.toContain('Proceed to TAC portal upload');
+    expect(md).toContain('failed to scan');
+    expect(md).toContain('casa-ready scan');
+  });
 });

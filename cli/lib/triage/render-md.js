@@ -37,7 +37,7 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
   if (findings.length === 0 && failures.length === 0) {
     lines.push('No findings to triage.');
     lines.push('');
-    appendNextStep(lines, { actionableCount: 0, saqExplainableCount: 0 });
+    appendNextStep(lines, { actionableCount: 0, saqExplainableCount: 0, hasFailures: false });
     return lines.join('\n');
   }
 
@@ -67,7 +67,10 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
     lines.push(CATEGORY_HEADING[cat]);
     lines.push('');
     for (const f of matching) {
-      lines.push(`### ${f.alertName}${f.cweId ? ` (CWE-${f.cweId}` : ''}${f.pluginId ? `, plugin ${f.pluginId})` : ')'}`);
+      const cweStr = f.cweId ? `CWE-${f.cweId}` : '';
+      const plugStr = f.pluginId ? `plugin ${f.pluginId}` : '';
+      const bracket = [cweStr, plugStr].filter(Boolean).join(', ');
+      lines.push(`### ${f.alertName}${bracket ? ` (${bracket})` : ''}`);
       lines.push('');
       lines.push(`**Affected target:** ${f.targetName}`);
       lines.push(`**Instances:** ${f.instanceCount}`);
@@ -79,11 +82,12 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
       }
       lines.push('');
       lines.push('**Evidence (representative):**');
-      const reps = f.evidence.slice(0, 3);
+      const evidence = f.evidence || [];
+      const reps = evidence.slice(0, 3);
       for (const e of reps) {
         lines.push(`- \`${e.method} ${e.uri}\`${e.param ? ` (param: ${e.param})` : ''}`);
       }
-      if (f.evidence.length > 3) lines.push(`- ... and ${f.evidence.length - 3} more (see results.html for full list)`);
+      if (evidence.length > 3) lines.push(`- ... and ${evidence.length - 3} more (see results.html for full list)`);
       lines.push('');
       if (cat === 'actionable') {
         lines.push('**Why this is actionable:** see linked rule file for the standard fix pattern and CASA context.');
@@ -114,12 +118,13 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
   appendNextStep(lines, {
     actionableCount: counts.actionable?.unique || 0,
     saqExplainableCount: counts['saq-explainable']?.unique || 0,
+    hasFailures: failures.length > 0,
   });
 
   return lines.join('\n');
 }
 
-function appendNextStep(lines, { actionableCount, saqExplainableCount }) {
+function appendNextStep(lines, { actionableCount, saqExplainableCount, hasFailures }) {
   lines.push('---');
   lines.push('');
   lines.push('## Next step:');
@@ -132,6 +137,8 @@ function appendNextStep(lines, { actionableCount, saqExplainableCount }) {
     lines.push('The casa-ready:triage-findings skill will personalize the templates from the rule files using your scan evidence.');
     lines.push('');
     lines.push('Alternatively, paste the SAQ-explainable section into your TAC submission as-is.');
+  } else if (hasFailures) {
+    lines.push('Some targets failed to scan (see Failures above) — no findings to triage from the targets that succeeded. Re-run `casa-ready scan` for the failed target(s) before proceeding to the TAC portal.');
   } else {
     lines.push('You\'re clear — no Actionable or SAQ-explainable findings. Proceed to TAC portal upload.');
   }

@@ -14,7 +14,7 @@ export function classify({ results, rulesIndex, targetName }) {
   for (const site of sites) {
     const alerts = Array.isArray(site.alerts) ? site.alerts : [];
     for (const alert of alerts) {
-      const pluginId = parseInt(alert.pluginid, 10);
+      const pluginId = alert.pluginid ? parseInt(alert.pluginid, 10) : null;
       const rule = rulesIndex.byPluginId.get(pluginId)
         ?? rulesIndex.byAlertName.get(alert.alert)
         ?? rulesIndex.byAlertName.get(alert.name);
