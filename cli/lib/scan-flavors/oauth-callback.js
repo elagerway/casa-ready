@@ -1,4 +1,5 @@
 import yaml from 'js-yaml';
+import { RESULTS_FILENAME } from '../scan-output.js';
 
 const ZAP_IMAGE = 'zaproxy/zap-stable';
 const ZAP_CONTEXT_PATH = '/zap/context.xml';
@@ -64,7 +65,7 @@ export function buildArgs({
     '-n',
     ZAP_CONTEXT_PATH,
     '-J',
-    'results.json',
+    RESULTS_FILENAME,
     '-x',
     'results.xml',
     '-r',

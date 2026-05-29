@@ -9,6 +9,7 @@ import { summarize } from '../lib/summarize.js';
 import { aggregateTargets } from '../lib/targets-summary.js';
 import { resolveSeedUrls as defaultResolveSeedUrls } from '../lib/seed-urls.js';
 import { renderOpenApiYaml } from '../lib/scan-flavors/oauth-callback.js';
+import { RESULTS_FILENAME } from '../lib/scan-output.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
@@ -212,7 +213,7 @@ async function runOneTarget({
 
     await runZap(args);
 
-    const resultsJsonPath = path.join(outputDir, 'results.json');
+    const resultsJsonPath = path.join(outputDir, RESULTS_FILENAME);
     const results = await readResultsJson(resultsJsonPath);
     const summaryMd = summarize(results, { targetName: target.name });
     await writeSummary(path.join(outputDir, 'summary.md'), summaryMd);

@@ -1,3 +1,5 @@
+import { RESULTS_FILENAME } from '../scan-output.js';
+
 const ZAP_IMAGE = 'zaproxy/zap-stable';
 const ZAP_CONTEXT_PATH = '/zap/context.xml';
 // Seed file lives at /zap/ root, NOT inside /zap/configs/ — that path is
@@ -58,7 +60,7 @@ export function buildCommonArgs({
     '-n',
     ZAP_CONTEXT_PATH,
     '-J',
-    'results.json',
+    RESULTS_FILENAME,
     '-x',
     'results.xml',
     '-r',

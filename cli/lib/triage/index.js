@@ -6,6 +6,7 @@ import { loadRulesIndex } from './rules-loader.js';
 import { classify } from './classify.js';
 import { renderMarkdown } from './render-md.js';
 import { renderJson } from './render-json.js';
+import { RESULTS_FILENAME } from '../scan-output.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -58,7 +59,7 @@ export async function runTriage(opts = {}) {
     if (!s.isDirectory()) continue;
     if (targetFilter && entry !== targetFilter) continue;
 
-    const resultsPath = path.join(subPath, 'results.json');
+    const resultsPath = path.join(subPath, RESULTS_FILENAME);
     let resultsRaw;
     try {
       resultsRaw = await readFile(resultsPath, 'utf8');
