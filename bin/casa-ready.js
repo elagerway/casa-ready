@@ -157,6 +157,11 @@ async function main(argv) {
         `  Inspect ${result.summaryPath} for per-target failure details before submitting.\n`
       );
     }
+    if (total - failed > 0) {
+      process.stdout.write(`\nNext step:\n`);
+      process.stdout.write(`  → casa-ready triage    # classify findings into Actionable / SAQ-explainable / Noise\n`);
+      process.stdout.write(`  → Then in Claude Code: ask "triage my CASA findings" to use the triage-findings skill\n`);
+    }
     process.exit(result.exitCode);
   } catch (err) {
     process.stderr.write(`\n✗ ${err.message}\n`);
