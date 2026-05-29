@@ -1,30 +1,62 @@
 # CASA Ready
 
-> An open-source toolkit to help developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
+> The Claude Code plugin (and bundled CLI) that helps developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
-**Status:** V2 (`v0.4.4`) — endpoint seeding (`seedDir`/`seedUrls`) shipped; OAuth callback active-scanning experimental (V2.1 work). Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** V0.5.0 — `triage-findings` skill + `casa-ready triage` CLI shipped. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
 
-## Why this exists
+## How it works
 
-If your app uses restricted Google API scopes (full Gmail, Drive, Calendar), Google requires an annual [CASA Tier 2 assessment](https://appdefensealliance.dev/casa). The official self-scan path was deprecated in 2025 — your two options now are [TAC Security](https://tacsecurity.com)'s official lab ($540–$1,800/year) or a pen-test from a security consultancy (typically thousands to tens of thousands of dollars, plus weeks of back-and-forth).
+CASA Ready is a Claude Code plugin that walks you through CASA prep, with a bundled CLI for the actual scanning work.
 
-The bottleneck isn't the money. It's:
+**You stay in Claude Code.** Ask "help me get CASA certified" — the plugin's skills do the rest:
 
-1. **No public guide.** TAC drops you in a portal with no instructions.
-2. **A 50+ question Self-Assessment Questionnaire** that takes most of the time.
-3. **OWASP ZAP / Fluid Attacks setup** the App Defense Alliance's own docs make harder than it needs to be.
-4. **Annual recert** that resets the pain.
+- `casa-ready:triage-findings` (V0.5.0, this release) — reads scan output, classifies findings, drafts patches for Actionable items, produces SAQ-ready answer text
+- `casa-ready:complete-saq` (V0.6.0, planned) — walks through the SAQ portal question-by-question
+- `casa-ready:run-scan`, `casa-ready:configure-scan`, `casa-ready:submit-to-tac`, `casa-ready:annual-recert` — coming in V0.6.0+
 
-CASA Ready closes those gaps so an indie dev can get to a Letter of Validation in days, not months.
+The plugin shells out to a CLI (`casa-ready scan`, `casa-ready triage`) that does the deterministic work — Docker orchestration, ZAP config, finding classification — while skills do the per-codebase judgment work (read your code, draft patches, personalize SAQ text).
 
-## Planned V1
+## Install
 
-| Component | What it does |
-|---|---|
-| `casa-ready scan` | Runs OWASP ZAP in Docker against your deployed app with the CASA-mapped CWE policy preloaded; emits the `.txt` artifacts the portal accepts. Target URL comes from `casa-ready.config.js`. |
-| `casa-ready saq` | SAQ Copilot — drafts answers to the 50+ Self-Assessment Questionnaire items from your repo + cloud config, with the "cloud provider handles that" / NA patterns built in |
-| `casa-ready precheck` | Top-20 CWE pre-fix snippets (security headers, HSTS, CSP, secure cookies, CORS lockdown) for common stacks — get scan-clean before you ever pay TAC |
-| `docs/playbook.md` | The missing TAC dashboard manual, step-by-step |
+Prerequisites: [Claude Code](https://claude.com/claude-code), Node 20+, Docker.
+
+```bash
+# 1. Install the plugin
+claude plugin install https://github.com/elagerway/casa-ready
+
+# 2. Install the bundled CLI
+npm install -g casa-ready
+```
+
+## Quick start (in Claude Code)
+
+```bash
+# 1. Scaffold a config in your project
+casa-ready init
+
+# 2. Set credentials (never put these in the config file)
+export CASA_READY_USER=your-test-user@example.com
+export CASA_READY_PASS=your-test-password
+
+# 3. Scan — Claude can drive this for you, or run it yourself
+casa-ready scan
+
+# 4. Triage — same: Claude can drive, or run it yourself
+casa-ready triage
+
+# 5. Open Claude Code and ask: "triage my CASA findings"
+#    The casa-ready:triage-findings skill takes it from there.
+```
+
+## Using the CLI standalone in CI
+
+If you don't use Claude Code, the CLI works on its own. It produces TAC-portal-ready artifacts and exits with code 1 when Actionable findings are present (so it gates CI cleanly):
+
+```bash
+npm install -g casa-ready          # or use as a dev dep + npx
+casa-ready scan
+casa-ready triage                  # exits 1 if Actionable findings present
+```
 
 ## Out of scope (deliberately)
 
@@ -50,36 +82,6 @@ casa-ready/
 ```
 
 ## Using `casa-ready scan`
-
-### Quick start
-
-```bash
-# 1. Install (pick one)
-npm install -g casa-ready                              # global install
-# OR
-npm install --save-dev casa-ready                      # local dev dep (recommended for CI)
-# OR run via npx (no install — slower per invocation, always latest)
-
-# 2. Generate your config interactively (recommended)
-casa-ready init                                # walks you through the prompts
-# OR copy the YAML example and hand-edit
-curl -O https://raw.githubusercontent.com/elagerway/casa-ready/main/casa-ready.yml.example
-mv casa-ready.yml.example casa-ready.yml
-
-# 3. Edit casa-ready.yml — VS Code with the YAML extension installed gives you
-#    inline autocomplete + schema validation thanks to the published JSON Schema
-
-# 4. Set creds (never put these in the config file)
-export CASA_READY_USER=your-test-user@example.com
-export CASA_READY_PASS=your-test-password
-
-# 5. Scan staging — runs all configured targets sequentially
-casa-ready scan                                # all targets in staging
-casa-ready scan --target spa                   # just the 'spa' target
-
-# 6. Scan prod — requires explicit confirmation
-casa-ready scan --env prod --confirm-prod
-```
 
 ### Output
 
@@ -204,8 +206,9 @@ V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockste
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
 | **V2** ◐ | Endpoint seeding (`seedDir`/`seedUrls`) ✓ shipped; OAuth callback active-scanning experimental | `v0.4.0`–`v0.4.4` 2026-05-01 |
-| **V2.1** | OAuth callback active-scan rewrite — custom `--hook` bypassing `zap-api-scan.py` host-root normalization | Next |
-| later | `casa-ready saq` — SAQ Copilot drafting from repo + cloud config | After V1 produces real scan output to feed it |
+| **V2.1** | OAuth callback active-scan rewrite — custom `--hook` bypassing `zap-api-scan.py` host-root normalization | Planned |
+| **V0.5.0** ✓ | `triage-findings` skill + `casa-ready triage` CLI — the first piece of the casa-ready Claude Code plugin | Shipped 2026-05-01 |
+| **V0.6.0** | `complete-saq` skill — SAQ Copilot drafting answers from triage findings + repo context | Next |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |
 
 ## License
