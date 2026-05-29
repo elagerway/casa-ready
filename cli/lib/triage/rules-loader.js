@@ -73,7 +73,8 @@ export async function loadRulesIndex(rulesDir) {
 
     const alertNames = parsed.frontmatter.zap_alert_names ?? [];
     for (const name of alertNames) {
-      // Alert-name matching is fuzzy fallback — duplicates are allowed (lower precedence than ID match)
+      // Alert-name matching is fuzzy fallback — first-wins when duplicates exist.
+      // Uniqueness across rule files is enforced by tests/rules-kb.test.js.
       if (!byAlertName.has(name)) byAlertName.set(name, parsed);
     }
   }
