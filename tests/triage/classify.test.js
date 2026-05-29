@@ -84,4 +84,30 @@ describe('classify', () => {
     const corsFinding = classified.findings.find((f) => f.alertName === 'Cross-Domain Misconfiguration');
     expect(corsFinding.evidence[0].uri).toBe('https://hldlhskdpnyrqemyxidg.supabase.co/functions/v1/users');
   });
+
+  // Item #5: NaN guard for riskCode and confidence when fields are absent
+  it('sets riskCode and confidence to null when riskcode/confidence fields are absent', () => {
+    const results = {
+      site: [{
+        '@name': 'https://example.com',
+        alerts: [{
+          pluginid: null,
+          alert: 'Test Alert With No Risk Or Confidence',
+          name: 'Test Alert With No Risk Or Confidence',
+          // riskcode intentionally absent
+          // confidence intentionally absent
+          instances: [],
+          count: '0',
+          solution: '',
+          desc: '',
+          cweid: null,
+        }],
+      }],
+    };
+    const classified = classify({ results, rulesIndex, targetName: 'test' });
+    expect(classified.findings).toHaveLength(1);
+    const f = classified.findings[0];
+    expect(f.riskCode).toBeNull();
+    expect(f.confidence).toBeNull();
+  });
 });

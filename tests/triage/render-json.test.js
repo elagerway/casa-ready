@@ -57,4 +57,57 @@ describe('renderJson', () => {
     expect(out.summary.byCategory.noise.unique).toBe(1);
     expect(out.summary.byCategory.noise.instances).toBe(5);
   });
+
+  // Item #5: confidence field must be emitted in each finding
+  it('emits confidence field in each finding', () => {
+    const out = renderJson({
+      runId: 'r', generatedAt: 'g', targetsIncluded: ['api'], failures: [],
+      findings: [
+        {
+          targetName: 'api',
+          alertName: 'Test Alert',
+          pluginId: 12345,
+          cweId: 200,
+          riskCode: 2,
+          confidence: 3,
+          instanceCount: 1,
+          category: 'actionable',
+          ruleSlug: null,
+          ruleSourceFile: null,
+          ruleSourcePath: null,
+          suggestedSaqSection: null,
+          suggestedSaqSectionTitle: null,
+          evidence: [],
+        },
+      ],
+    });
+    expect(out.findings[0]).toHaveProperty('confidence');
+    expect(out.findings[0].confidence).toBe(3);
+  });
+
+  it('emits confidence: null when confidence is null (absent/absent-guarded)', () => {
+    const out = renderJson({
+      runId: 'r', generatedAt: 'g', targetsIncluded: ['api'], failures: [],
+      findings: [
+        {
+          targetName: 'api',
+          alertName: 'No Confidence Alert',
+          pluginId: null,
+          cweId: null,
+          riskCode: null,
+          confidence: null,
+          instanceCount: 0,
+          category: 'unknown',
+          ruleSlug: null,
+          ruleSourceFile: null,
+          ruleSourcePath: null,
+          suggestedSaqSection: null,
+          suggestedSaqSectionTitle: null,
+          evidence: [],
+        },
+      ],
+    });
+    expect(out.findings[0]).toHaveProperty('confidence');
+    expect(out.findings[0].confidence).toBeNull();
+  });
 });
