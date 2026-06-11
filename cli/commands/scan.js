@@ -182,7 +182,7 @@ async function runOneTarget({
     const targetFlavor = target.scan ?? flavor;
 
     // For baseline/casa: resolve seed URLs and write to a temp file the
-    // hook script will read. Skip for oauth-callback (uses synthetic OpenAPI).
+    // hook script will read. Skip for oauth-callback (uses a JSON descriptor instead — see below).
     if (targetFlavor !== 'oauth-callback') {
       const seedUrls = await resolveSeedUrls(target);
       // Only mount/write if we actually have extras beyond target.url.
