@@ -9,7 +9,7 @@
 | Thing | State |
 |---|---|
 | **npm `latest`** | `0.5.3` (published, live) |
-| **GitHub default branch** | `main` @ `e2d9105` (specs/plans only; the v0.6.0 feature is NOT on main yet) |
+| **GitHub default branch** | `main` @ `6084d64` (specs/plans + this handoff only; the v0.6.0 feature is NOT on main yet) |
 | **Open work** | **PR #5** — v0.6.0 oauth-callback rewrite — branch `v0.6.0-impl` @ `942503d`, fully pushed, **NOT merged** |
 | **Website** | https://casaready.org — live on Vercel, serving v0.5.2 landing page |
 | **Repo** | https://github.com/elagerway/casa-ready (public, MIT) |
