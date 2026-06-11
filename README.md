@@ -2,7 +2,7 @@
 
 > The Claude Code plugin (and bundled CLI) that helps developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
-**Status:** V0.5.0 — `triage-findings` skill + `casa-ready triage` CLI shipped. Built in the open while passing CASA for [Magpipe](https://magpipe.ai).
+**Status:** v0.5.2 — `triage-findings` skill + `casa-ready triage` CLI shipped. Built in the open, exercised against real applications.
 
 ## How it works
 
@@ -196,20 +196,20 @@ For Supabase-backed apps, the `supabase-jwt` auth type performs the JSON-body Su
 
 ## Status & roadmap
 
-V1 must ship before **2026-07-23** — Magpipe's CASA deadline. Built in lockstep with that submission so every feature is grounded in a real pain point we hit.
+Every feature is grounded in a real pain point hit while scanning live applications — nothing here is speculative tooling.
 
 ### Roadmap
 
 | Version | Scope | Triggered by |
 |---|---|---|
-| **V1** (in design) | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin (e.g., `magpipe.ai`) with the CASA-mapped CWE policy | The 2026-07-23 deadline |
+| **V1** ✓ | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin with the CASA-mapped CWE policy | Shipped 2026-04-29 in `v0.1.0` |
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
 | **V2** ◐ | Endpoint seeding (`seedDir`/`seedUrls`) ✓ shipped; OAuth callback active-scanning experimental | `v0.4.0`–`v0.4.4` 2026-05-01 |
 | **V2.1** | OAuth callback active-scan rewrite — custom `--hook` bypassing `zap-api-scan.py` host-root normalization | Planned |
 | **V0.5.0** ✓ | `triage-findings` skill + `casa-ready triage` CLI — the first piece of the casa-ready Claude Code plugin | Shipped 2026-05-01 |
 | **V0.6.0** | `complete-saq` skill — SAQ Copilot drafting answers from triage findings + repo context | Next |
-| later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs Magpipe (and contributors' apps) actually trip |
+| later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs contributors' apps actually trip |
 
 ## License
 

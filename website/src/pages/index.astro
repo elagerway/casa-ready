@@ -18,7 +18,7 @@ const REPO = 'https://github.com/elagerway/casa-ready';
       content="Open-source toolkit to pass Google's CASA Tier 2 security assessment for restricted Gmail/Drive/Calendar API scopes. OWASP ZAP automation, Supabase auth, schema-driven YAML config."
     />
     <meta property="og:title" content="CASA Ready — Open-source toolkit for Google's CASA Tier 2" />
-    <meta property="og:description" content="Open-source toolkit for Google's CASA Tier 2 security assessment. Built while shipping Magpipe through CASA." />
+    <meta property="og:description" content="Open-source toolkit for Google's CASA Tier 2 security assessment. OWASP ZAP automation, finding triage, and the playbook the lab doesn't include." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://casaready.org" />
     <meta property="og:image" content="https://casaready.org/og.png" />
@@ -27,7 +27,7 @@ const REPO = 'https://github.com/elagerway/casa-ready';
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content="https://casaready.org/og.png" />
     <meta name="twitter:title" content="CASA Ready — Open-source toolkit for Google's CASA Tier 2" />
-    <meta name="twitter:description" content="Open-source toolkit for Google's CASA Tier 2 security assessment. Built while shipping Magpipe through CASA." />
+    <meta name="twitter:description" content="Open-source toolkit for Google's CASA Tier 2 security assessment. OWASP ZAP automation, finding triage, and the playbook the lab doesn't include." />
   </head>
   <body>
     <main>
@@ -51,7 +51,6 @@ const REPO = 'https://github.com/elagerway/casa-ready';
         </div>
         <p class="status">
           <span class="badge">{VERSION}</span> shipped {RELEASE_DATE}
-          &middot; built while passing CASA for <a href="https://magpipe.ai">Magpipe</a>
         </p>
       </header>
 
@@ -156,10 +155,9 @@ casa-ready scan</code></pre>
           <article class="feature">
             <h3>Built in the open</h3>
             <p>
-              MIT licensed. Every release is dogfooded against
-              <a href="https://magpipe.ai">Magpipe</a> &mdash; a live commercial product going
-              through CASA before its 2026-07-23 deadline. If it breaks for us, we ship a fix the
-              same day.
+              MIT licensed. Every release is exercised against real applications before it
+              ships &mdash; the rules knowledge base and scan flavors come from findings on
+              live targets, not synthetic test pages.
             </p>
           </article>
         </div>
@@ -233,7 +231,7 @@ casa-ready scan</code></pre>
           &middot; <a href={`${REPO}/blob/main/CHANGELOG.md`}>Changelog</a>
           &middot; <a href={`${REPO}/issues`}>Report an issue</a>
         </p>
-        <p class="signature">Built by <a href="https://snapsonic.com">Snapsonic</a> while shipping <a href="https://magpipe.ai">Magpipe</a>.</p>
+        <p class="signature">Built by <a href="https://snapsonic.com">Snapsonic</a>.</p>
       </footer>
     </main>
   </body>

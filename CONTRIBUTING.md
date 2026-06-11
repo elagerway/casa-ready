@@ -1,6 +1,6 @@
 # Contributing to CASA Ready
 
-Thanks for taking a look. CASA Ready is small, focused, and dogfooded against a real CASA submission ([Magpipe](https://magpipe.ai)). Contributions that move the needle on real CASA submissions are very welcome — see the **Where to start** section below for the highest-leverage work.
+Thanks for taking a look. CASA Ready is small, focused, and exercised against real applications. Contributions that move the needle on real CASA submissions are very welcome — see the **Where to start** section below for the highest-leverage work.
 
 ## What this project is and isn't
 

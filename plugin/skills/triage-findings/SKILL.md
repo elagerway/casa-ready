@@ -94,7 +94,7 @@ For each SAQ-explainable finding:
 
 ### Phase 5: Verify and hand off
 
-1. List all proposed patches. Cross-check: did any single fix resolve findings on multiple targets? (Magpipe-style: one CORS fix resolved 5 targets.) If yes, surface that — fewer PRs to land.
+1. List all proposed patches. Cross-check: did any single fix resolve findings on multiple targets? (Common in practice: one CORS fix can resolve findings on 5 targets.) If yes, surface that — fewer PRs to land.
 2. List all drafted SAQ answers, grouped by suggested SAQ section.
 3. List all Unknown findings unchanged. Suggest the user open a PR adding rule files for any that recur.
 4. **Present the next step explicitly:**

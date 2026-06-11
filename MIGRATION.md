@@ -12,7 +12,7 @@ Fully backward-compatible. All v0.3.x configs work unchanged. New optional targe
 | `auth: { type: none }` | For genuinely public endpoints (callback handlers, marketing pages). Skips login. |
 | `callbackParams: {...}` | Required when `scan: oauth-callback`. Query params used as fuzz starting input. |
 
-Magpipe-style minimal upgrade — add one line to your existing `api` target:
+Minimal upgrade for a Supabase project — add one line to your existing `api` target:
 
 ```yaml
 - name: api
