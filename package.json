@@ -4,7 +4,7 @@
   "description": "Open-source toolkit to pass Google CASA Tier 2 security assessments without consulting-firm costs.",
   "type": "module",
   "bin": {
-    "casa-ready": "./bin/casa-ready.js"
+    "casa-ready": "bin/casa-ready.js"
   },
   "types": "./types/index.d.ts",
   "files": [
@@ -40,7 +40,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/elagerway/casa-ready"
+    "url": "git+https://github.com/elagerway/casa-ready.git"
   },
   "engines": {
     "node": ">=20"

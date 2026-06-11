@@ -11,6 +11,9 @@ coverage/
 # Superpowers worktrees
 .worktrees/
 
+# Claude Code local settings
+.claude/
+
 # CASA scan artifacts (often contain target URLs / auth)
 scan-output/
 *.zap.json
