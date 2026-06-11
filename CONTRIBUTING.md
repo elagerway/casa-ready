@@ -92,7 +92,7 @@ The path mirrors auth types — the dispatcher in `cli/lib/scan-flavors/index.js
 3. Create `cli/lib/scan-flavors/<flavor>.js` exporting `buildArgs(opts)` that returns a docker argv.
 4. Register it in `cli/lib/scan-flavors/index.js`'s `FLAVORS` map.
 5. Add tests at `tests/lib/scan-flavors/<flavor>.test.js`.
-6. If the flavor uses a different ZAP wrapper script (`zap-baseline.py` vs `zap-api-scan.py` vs the GraphQL one), look at `cli/lib/scan-flavors/oauth-callback.js` for how to mount the spec file and pass `-f` etc.
+6. If the flavor uses a different ZAP wrapper script (`zap-baseline.py` vs `zap-full-scan.py` vs the GraphQL one), look at `cli/lib/scan-flavors/oauth-callback.js` for how to mount the hook script and pass `--hook` etc. The wrapper-hook pattern has two worked examples in `configs/zap/`: `seed-spider-hook.py` (seeds extra spider URLs) and `oauth-callback-hook.py` (seeds the parameterized callback request(s) for the `oauth-callback` flavor so `callbackParams` become real injection points).
 7. Update README + CHANGELOG.
 
 The JSON Schema and TS types regenerate from step 1 — no manual edits to `schemas/` (but `types/index.d.ts`'s union may need a hand-update in `scripts/build-schema.js`).
