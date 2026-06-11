@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
+import { readFile } from 'node:fs/promises';
 import { runScan } from '../cli/commands/scan.js';
 
 const HELP = `casa-ready — open-source toolkit for Google CASA Tier 2
@@ -8,6 +9,7 @@ Usage:
   casa-ready init                              Generate casa-ready.yml interactively
   casa-ready scan [options]                    Run a CASA-tuned scan
   casa-ready triage [path] [options]           Classify scan findings into Actionable / SAQ-explainable / Noise
+  casa-ready --version, -v                     Print the casa-ready version
 
 Scan options:
   --env <staging|prod>     Which environment to scan (default: staging)
@@ -43,6 +45,12 @@ async function main(argv) {
   if (!subcommand || subcommand === '--help' || subcommand === '-h') {
     process.stdout.write(HELP);
     process.exit(subcommand ? 0 : 1);
+  }
+
+  if (subcommand === '--version' || subcommand === '-v') {
+    const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
+    process.stdout.write(`${pkg.version}\n`);
+    process.exit(0);
   }
 
   if (subcommand === 'init') {
