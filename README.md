@@ -170,14 +170,16 @@ seedDir: ./supabase/functions   # Supabase shortcut: glob subdirs into seed URLs
 seedUrls: ['/functions/v1/legacy-endpoint']   # explicit list (full URLs or paths)
 scan: oauth-callback            # per-target scan flavor (only oauth-callback for now)
 auth: { type: none }            # for genuinely public endpoints
+method: [GET, POST]             # optional; default GET. POST = response_mode=form_post
 callbackParams:                 # required when scan: oauth-callback
   state: test-state-token
   code: test-authorization-code
+  redirect_uri: https://your-app.example/dashboard
 ```
 
 For Supabase apps, the one-line addition is `seedDir: ./supabase/functions` on your existing `api` target. ZAP's spider then discovers all your Edge Functions automatically.
 
-**OAuth callback active-scanning is experimental in v0.4.x** — see the CHANGELOG `[0.4.4]` entry for the known `URL_NOT_IN_CONTEXT` failure mode and the V2.1 tracking note. The schema accepts the shape today; only the implementation is broken. The seedDir-based passive scan above DOES exercise OAuth callback endpoints — just without active param fuzzing.
+**OAuth callback active-scanning** (since `v0.6.0`) runs `zap-full-scan.py` against the exact callback URL with a custom `--hook` that seeds the parameterized request(s) into ZAP's Sites tree, so `callbackParams` become real injection points. The optional `method` field accepts `GET`, `POST`, or `[GET, POST]` (default `GET`); `POST` sends the params as an `application/x-www-form-urlencoded` body for OAuth `response_mode=form_post` callbacks. ZAP's External Redirect rule covers open-redirect on `redirect_uri`.
 
 ### IDE autocomplete
 
@@ -205,8 +207,8 @@ Every feature is grounded in a real pain point hit while scanning live applicati
 | **V1** ✓ | `casa-ready scan` — anonymous + form-auth OWASP ZAP scan against the primary origin with the CASA-mapped CWE policy | Shipped 2026-04-29 in `v0.1.0` |
 | **V1.1** ✓ | Multi-target scanning (`targets[]`) + `supabase-jwt` auth with JWT refresh | Shipped 2026-04-29 in `v0.2.0` |
 | **V1.2** ✓ | YAML config + `init` command + JSON Schema + TS types — OSS launch quality | Shipped 2026-05-01 in `v0.3.0` |
-| **V2** ◐ | Endpoint seeding (`seedDir`/`seedUrls`) ✓ shipped; OAuth callback active-scanning experimental | `v0.4.0`–`v0.4.4` 2026-05-01 |
-| **V2.1** | OAuth callback active-scan rewrite — custom `--hook` bypassing `zap-api-scan.py` host-root normalization | Planned |
+| **V2** ✓ | Endpoint seeding (`seedDir`/`seedUrls`) + OAuth callback active-scanning | `v0.4.0`–`v0.4.4` 2026-05-01 |
+| **V2.1** ✓ | OAuth callback active scan rewrite — custom `--hook` on `zap-full-scan.py` (GET + POST, open-redirect on `redirect_uri`); replaces the experimental `zap-api-scan.py` path | Shipped 2026-06-11 in `v0.6.0` |
 | **V0.5.0** ✓ | `triage-findings` skill + `casa-ready triage` CLI — the first piece of the casa-ready Claude Code plugin | Shipped 2026-05-01 |
 | **V0.6.0** | `complete-saq` skill — SAQ Copilot drafting answers from triage findings + repo context | Next |
 | later | `casa-ready precheck` — Top-20 CWE pre-fix snippets for common stacks | After we see which CWEs contributors' apps actually trip |

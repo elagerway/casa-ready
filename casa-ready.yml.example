@@ -52,32 +52,20 @@ envs:
         seedUrls:
           - /functions/v1/legacy-route
 
-      # ⚠️ EXPERIMENTAL (v0.4.0+): OAuth callback active-scan target.
-      #
-      # The example below is the intended shape, but this flavor is currently
-      # known-broken in v0.4.x — see CHANGELOG and the v0.4.4 notes. Three
-      # hotfix releases (v0.4.1, v0.4.2, v0.4.3) peeled back layered issues
-      # but the deepest one is fundamental: zap-api-scan.py is built for
-      # whole-API scans, not single-endpoint OAuth callback fuzzing. Targets
-      # using `scan: oauth-callback` will fail at active-scan time with
-      # URL_NOT_IN_CONTEXT and the per-target summary will report the failure.
-      # The seedDir-based passive scan above DOES exercise these endpoints.
-      #
-      # Tracked for V2.1 — proper fix uses a custom --hook calling
-      # zap.ascan.scan(callback_url, ...) directly, bypassing zap-api-scan's
-      # host-root target normalization.
-      #
-      # Uncomment when V2.1 ships. The schema accepts the shape today; only
-      # the implementation is broken.
-      #
-      # - name: oauth-callback
-      #   url: https://your-app.example/auth/google/callback
-      #   auth: { type: none }   # public endpoint — Google's redirect arrives unauthenticated
-      #   scan: oauth-callback
-      #   callbackParams:
-      #     state: test-state-token
-      #     code: test-authorization-code
-      #     redirect_uri: https://your-app.example/dashboard
+      # OAuth callback active scan — fuzzes the callback handler's parameters.
+      # callbackParams are FUZZ INPUTS, not valid Google credentials; ZAP
+      # mutates them looking for injection, XSS in error responses, and open
+      # redirect on redirect_uri.
+      - name: oauth-callback
+        url: https://your-app.example/auth/google/callback
+        auth:
+          type: none
+        scan: oauth-callback
+        method: [GET, POST]   # default is GET; POST = OAuth response_mode=form_post
+        callbackParams:
+          state: test-state-token
+          code: test-authorization-code
+          redirect_uri: https://your-app.example/dashboard
 
   prod:
     targets: []  # add prod targets here once staging is dialed in

@@ -1,5 +1,14 @@
 # Migrating CASA Ready
 
+## v0.5.x → v0.6.0
+
+No breaking changes. Two notes:
+
+- `scan: oauth-callback` targets that previously failed with `URL_NOT_IN_CONTEXT` now work — no config change required.
+- New optional `method` field on oauth-callback targets: `method: [GET, POST]` to also probe `application/x-www-form-urlencoded` (OAuth `response_mode=form_post`) callbacks. Defaults to `GET`.
+
+---
+
 ## v0.3.x → v0.4.0
 
 Fully backward-compatible. All v0.3.x configs work unchanged. New optional target fields:

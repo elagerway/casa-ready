@@ -4,6 +4,22 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-06-11
+
+### Fixed
+
+- **`scan: oauth-callback` now works.** The flavor previously failed at active-scan time with `URL_NOT_IN_CONTEXT` because `zap-api-scan.py` normalizes the active-scan target to the host root — wrong for single-endpoint callback fuzzing. The flavor now runs `zap-full-scan.py` against the exact callback URL with a custom `oauth-callback-hook.py` that seeds the parameterized request(s) into ZAP's Sites tree, so `callbackParams` become real injection points. No more host-root normalization.
+
+### Added
+
+- **POST / `form_post` callbacks and a `method` field.** OAuth callback targets accept `method: GET | POST | [GET, POST]` (default `GET`). `POST` sends `callbackParams` as an `application/x-www-form-urlencoded` body (OAuth `response_mode=form_post`).
+- **Open-redirect coverage on `redirect_uri`.** ZAP's External Redirect active-scan rule runs against the seeded params; a new `configs/casa/rules/external-redirect.md` triage rule classifies the finding as Actionable with the redirect-allowlist fix pattern.
+
+### Changed
+
+- `scan: oauth-callback` is no longer experimental — the example YAML target is un-commented and the warning removed.
+- Removed the synthetic-OpenAPI machinery (`renderOpenApiYaml`, the dummy-root-path workaround, the `/zap/openapi.yaml` mount) that the old path required.
+
 ## [0.5.3] — 2026-06-10
 
 ### Changed

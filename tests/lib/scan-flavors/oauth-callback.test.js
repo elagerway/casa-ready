@@ -1,36 +1,41 @@
 import { describe, it, expect } from 'vitest';
-import { buildArgs, renderOpenApiYaml } from '../../../cli/lib/scan-flavors/oauth-callback.js';
+import { buildArgs } from '../../../cli/lib/scan-flavors/oauth-callback.js';
 
 describe('scan-flavors/oauth-callback', () => {
   const baseOpts = {
-    targetUrl: 'https://magpipe.ai/auth/google/callback',
+    targetUrl: 'https://example.com/auth/google/callback',
     configsDir: '/abs/configs/zap',
     outputDir: '/abs/out',
     contextPath: '/tmp/ctx.xml',
-    callbackParams: { state: 'test-state', code: 'test-code', redirect_uri: 'https://magpipe.ai/dash' },
-    openApiPath: '/tmp/oauth-openapi-abc.yaml',
+    descriptorPath: '/tmp/oauth-callback-abc.json',
+    containerName: 'casa-ready-callback-123',
   };
 
-  it('uses zap-api-scan.py with -f openapi', () => {
+  it('uses zap-full-scan.py (not zap-api-scan.py)', () => {
     const args = buildArgs(baseOpts);
-    expect(args).toContain('zap-api-scan.py');
-    expect(args).toContain('-f');
-    const fIdx = args.indexOf('-f');
-    expect(args[fIdx + 1]).toBe('openapi');
+    expect(args).toContain('zap-full-scan.py');
+    expect(args).not.toContain('zap-api-scan.py');
+    expect(args.join(' ')).not.toMatch(/openapi/i);
   });
 
-  it('mounts the synthetic OpenAPI file at /zap/ root (NOT inside /zap/wrk)', () => {
-    // v0.4.2 regression catch: any path inside /zap/wrk/ would fail at
-    // runtime with "outside of rootfs" — Docker Desktop's virtiofs on macOS
-    // can't nest a file mount inside an existing directory mount. Same bug
-    // class as v0.4.1's seed-file fix.
+  it('registers the oauth-callback hook', () => {
     const args = buildArgs(baseOpts);
-    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/openapi.yaml:ro');
+    const hookIdx = args.indexOf('--hook');
+    expect(hookIdx).toBeGreaterThan(-1);
+    expect(args[hookIdx + 1]).toBe('/zap/configs/oauth-callback-hook.py');
+  });
+
+  it('mounts the descriptor at /zap root (NOT inside /zap/wrk)', () => {
+    const args = buildArgs(baseOpts);
+    expect(args).toContain('/tmp/oauth-callback-abc.json:/zap/oauth-callback.json:ro');
+    const descriptorMount = args.find((a) => a.startsWith('/tmp/oauth-callback-abc.json:'));
+    expect(descriptorMount).not.toMatch(/:\/zap\/wrk\//);
+  });
+
+  it('targets the actual callback URL (no host-root normalization)', () => {
+    const args = buildArgs(baseOpts);
     const tIdx = args.indexOf('-t');
-    expect(args[tIdx + 1]).toBe('/zap/openapi.yaml');
-    // Defense in depth: assert the OpenAPI mount is NOT inside /zap/wrk/
-    const openApiMount = args.find((a) => a.startsWith('/tmp/oauth-openapi-abc.yaml:'));
-    expect(openApiMount).not.toMatch(/:\/zap\/wrk\//);
+    expect(args[tIdx + 1]).toBe('https://example.com/auth/google/callback');
   });
 
   it('preserves the standard mount + report flag set', () => {
@@ -41,67 +46,9 @@ describe('scan-flavors/oauth-callback', () => {
     expect(args).toContain('results.json');
   });
 
-  it('throws when callbackParams is missing', () => {
+  it('throws when descriptorPath is missing', () => {
     const opts = { ...baseOpts };
-    delete opts.callbackParams;
-    expect(() => buildArgs(opts)).toThrow(/callbackParams.*required.*oauth-callback/i);
-  });
-
-  it('throws when openApiPath is missing', () => {
-    const opts = { ...baseOpts };
-    delete opts.openApiPath;
-    expect(() => buildArgs(opts)).toThrow(/openApiPath.*required/i);
-  });
-});
-
-describe('renderOpenApiYaml', () => {
-  it('produces a single-endpoint OpenAPI 3.0 doc with one query param per callbackParams entry', () => {
-    const yaml = renderOpenApiYaml({
-      url: 'https://magpipe.ai/auth/google/callback',
-      params: { state: 'abc', code: 'xyz' },
-    });
-    expect(yaml).toContain('openapi: 3.0.0');
-    expect(yaml).toContain('/auth/google/callback');
-    expect(yaml).toContain('name: state');
-    expect(yaml).toContain('example: abc');
-    expect(yaml).toContain('name: code');
-    expect(yaml).toContain('example: xyz');
-    expect(yaml).toContain('in: query');
-    expect(yaml).toContain('required: true');
-    expect(yaml).toMatch(/schema:\s*\n\s*type: string/);
-  });
-
-  it('parses the URL path correctly (no host in the path:) and includes a host-root entry', () => {
-    const yaml = renderOpenApiYaml({
-      url: 'https://magpipe.ai/auth/google/callback',
-      params: { state: 'x' },
-    });
-    // The OpenAPI 'paths:' key has the URL path only; the server URL has the origin.
-    expect(yaml).toMatch(/servers:\n\s*-\s*url:\s*https:\/\/magpipe\.ai\b/);
-    // v0.4.3: paths includes BOTH the host root "/" (dummy entry needed by
-    // zap-api-scan.py's target normalization to host root) AND the actual
-    // callback path. ZAP imports both; active scan recurses from root.
-    // js-yaml renders the root key bare as `/:` (no quotes needed)
-    expect(yaml).toMatch(/paths:\n\s*\/:/);
-    expect(yaml).toContain('/auth/google/callback:');
-  });
-
-  it('omits the dummy host-root entry when the callback IS the host root', () => {
-    const yaml = renderOpenApiYaml({
-      url: 'https://x.com/',
-      params: { state: 'x' },
-    });
-    // Host root is the only path — no duplicate entry.
-    const rootMatches = (yaml.match(/^\s*\/:/gm) || []).length;
-    expect(rootMatches).toBe(1);
-  });
-
-  it('XML-escapes nothing (it is YAML, not XML) but quotes example values that need it', () => {
-    const yaml = renderOpenApiYaml({
-      url: 'https://x.com/cb',
-      params: { redirect_uri: 'https://attacker.example/?next=/admin' },
-    });
-    // js-yaml will quote the example string because it contains a colon
-    expect(yaml).toMatch(/example:\s*'?https:\/\/attacker\.example/);
+    delete opts.descriptorPath;
+    expect(() => buildArgs(opts)).toThrow(/descriptorPath.*required/i);
   });
 });

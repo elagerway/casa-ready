@@ -140,6 +140,42 @@ describe('ConfigSchema', () => {
     expect(() => ConfigSchema.parse(cfg)).not.toThrow();
   });
 
+  it("accepts a scalar method on an oauth-callback target", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x' };
+    cfg.envs.staging.targets[0].method = 'POST';
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it("accepts an array method on an oauth-callback target", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x' };
+    cfg.envs.staging.targets[0].method = ['GET', 'POST'];
+    expect(() => ConfigSchema.parse(cfg)).not.toThrow();
+  });
+
+  it("rejects an invalid method value", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x' };
+    cfg.envs.staging.targets[0].method = 'DELETE';
+    expect(() => ConfigSchema.parse(cfg)).toThrow();
+  });
+
+  it("rejects an empty method array", () => {
+    const cfg = structuredClone(validConfig);
+    cfg.envs.staging.targets[0].auth = { type: 'none' };
+    cfg.envs.staging.targets[0].scan = 'oauth-callback';
+    cfg.envs.staging.targets[0].callbackParams = { state: 'x' };
+    cfg.envs.staging.targets[0].method = [];
+    expect(() => ConfigSchema.parse(cfg)).toThrow();
+  });
+
   it("rejects scan: 'oauth-callback' without callbackParams", () => {
     const cfg = structuredClone(validConfig);
     cfg.envs.staging.targets[0].auth = { type: 'none' };
