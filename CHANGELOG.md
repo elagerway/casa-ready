@@ -4,6 +4,21 @@ All notable changes to CASA Ready are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] — 2026-06-10
+
+### Added
+
+- **`casa-ready --version` / `-v`** prints the installed version (previously an "Unknown command" error).
+
+### Changed
+
+- All js-yaml usage is centralized behind `cli/lib/yaml.js` (`loadYaml` with caller-supplied error context, `dumpYaml` with `noRefs` default). Error messages are unchanged.
+- The per-finding rationale text in `triage.md` rendering is now a data map (`CATEGORY_RATIONALE`) instead of an if/else chain. Output is byte-for-byte identical (pinned by test).
+
+### Fixed
+
+- `package.json` normalized per `npm pkg fix` (bin path, `repository.url`) to match what the npm registry publishes.
+
 ## [0.5.1] — 2026-05-29
 
 ### Fixed
