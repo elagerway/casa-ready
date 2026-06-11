@@ -1,4 +1,4 @@
-import yaml from 'js-yaml';
+import { dumpYaml } from '../yaml.js';
 import { RESULTS_FILENAME } from '../scan-output.js';
 
 const ZAP_IMAGE = 'zaproxy/zap-stable';
@@ -134,5 +134,5 @@ export function renderOpenApiYaml({ url, params }) {
     paths,
   };
 
-  return yaml.dump(doc, { lineWidth: 120, noRefs: true });
+  return dumpYaml(doc, { lineWidth: 120 });
 }

@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { writeFile, access } from 'node:fs/promises';
-import yaml from 'js-yaml';
+import { dumpYaml } from '../lib/yaml.js';
 import * as defaultPrompts from '@inquirer/prompts';
 import { ConfigSchema } from '../lib/schema.js';
 
@@ -74,7 +74,7 @@ export async function runInit({ cwd = process.cwd(), prompts = defaultPrompts } 
     throw new Error(`Config validation failed (init produced invalid output):\n${issues}`);
   }
 
-  const yamlBody = yaml.dump(result.data, { lineWidth: 100, noRefs: true });
+  const yamlBody = dumpYaml(result.data, { lineWidth: 100 });
   const written = `${SCHEMA_DIRECTIVE}\n${yamlBody}`;
   await writeFile(target, written, 'utf8');
   return { aborted: false, written: target };

@@ -1,6 +1,6 @@
 import { readFile, access } from 'node:fs/promises';
 import path from 'node:path';
-import yaml from 'js-yaml';
+import { loadYaml } from './yaml.js';
 import { ConfigSchema } from './schema.js';
 import { expandEnv } from './env-expand.js';
 
@@ -40,12 +40,7 @@ export async function loadConfig(configPath) {
     );
   }
 
-  let parsed;
-  try {
-    parsed = yaml.load(source);
-  } catch (err) {
-    throw new Error(`Invalid YAML in ${configPath}: ${err.message}`);
-  }
+  const parsed = loadYaml(source, `Invalid YAML in ${configPath}`);
 
   const expanded = expandEnv(parsed);
 

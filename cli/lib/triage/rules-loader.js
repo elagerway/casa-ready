@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
-import yaml from 'js-yaml';
+import { loadYaml } from '../yaml.js';
 
 /**
  * Parse a rule file's raw markdown into { frontmatter, body }.
@@ -29,12 +29,7 @@ export function parseRuleFile(raw, sourceFile = '<unknown>') {
   }
   const yamlBlock = raw.slice(4, closeIdx);
 
-  let frontmatter;
-  try {
-    frontmatter = yaml.load(yamlBlock);
-  } catch (err) {
-    throw new Error(`Rule file ${sourceFile}: invalid YAML frontmatter: ${err.message}`);
-  }
+  const frontmatter = loadYaml(yamlBlock, `Rule file ${sourceFile}: invalid YAML frontmatter`);
   if (!frontmatter || typeof frontmatter !== 'object') {
     throw new Error(`Rule file ${sourceFile}: frontmatter parsed to non-object`);
   }
