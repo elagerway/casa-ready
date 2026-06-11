@@ -109,19 +109,20 @@ describe('runScan (multi-target)', () => {
 
   it('uses zap-baseline.py when flavor=baseline (per-call)', async () => {
     const deps = makeDeps();
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'baseline' },
       deps
     );
     // spa + api use opts.flavor=baseline; oauth-callback target overrides via
-    // its per-target `scan: oauth-callback` and uses zap-api-scan.py instead.
+    // its per-target `scan: oauth-callback` and uses zap-full-scan.py (active
+    // scan driven by the oauth-callback hook + JSON descriptor) instead.
     const scripts = deps.runZap.mock.calls.map((call) => {
       const imgIdx = call[0].indexOf('zaproxy/zap-stable');
       return call[0][imgIdx + 1];
     });
-    expect(scripts).toEqual(['zap-baseline.py', 'zap-baseline.py', 'zap-api-scan.py']);
+    expect(scripts).toEqual(['zap-baseline.py', 'zap-baseline.py', 'zap-full-scan.py']);
   });
 
   it('continues to next target when one target fails (best-effort)', async () => {
@@ -132,8 +133,8 @@ describe('runScan (multi-target)', () => {
         .mockResolvedValueOnce({ exitCode: 0 })
         .mockResolvedValueOnce({ exitCode: 0 }),
     });
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
@@ -148,8 +149,8 @@ describe('runScan (multi-target)', () => {
 
   it('cleans up the temp context file for each target on success', async () => {
     const deps = makeDeps();
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
@@ -161,8 +162,8 @@ describe('runScan (multi-target)', () => {
     const deps = makeDeps({
       runZap: vi.fn().mockRejectedValue(new Error('boom')),
     });
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
@@ -173,8 +174,8 @@ describe('runScan (multi-target)', () => {
 
   it('writes a top-level summary with per-target sections', async () => {
     const deps = makeDeps();
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
@@ -192,8 +193,8 @@ describe('runScan (multi-target)', () => {
 
   it('default mkdirOutput resolves under process.cwd() per target subdir', async () => {
     const deps = makeDeps({ mkdirOutput: undefined });
-    deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-    deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+    deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+    deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
     const result = await runScan(
       { configPath: fixturePath, env: 'staging', confirmProd: false, flavor: 'casa' },
       deps
@@ -239,11 +240,11 @@ envs:
     try {
       const deps = makeDeps();
       // Track per-target writer calls to lock the lifecycle invariants:
-      // - oauth-callback target uses writeOpenApiFile (NOT writeSeedFile)
-      // - non-oauth-callback targets may use writeSeedFile but never writeOpenApiFile
+      // - oauth-callback target uses writeCallbackDescriptor (NOT writeSeedFile)
+      // - non-oauth-callback targets may use writeSeedFile but never writeCallbackDescriptor
       // Mock both writers; capture call args for assertion at the end.
-      deps.writeOpenApiFile = vi.fn().mockResolvedValue('/tmp/casa-openapi-test.yaml');
-      deps.deleteOpenApiFile = vi.fn().mockResolvedValue(undefined);
+      deps.writeCallbackDescriptor = vi.fn().mockResolvedValue('/tmp/casa-oauth-descriptor-test.json');
+      deps.deleteCallbackDescriptor = vi.fn().mockResolvedValue(undefined);
       deps.writeSeedFile = vi.fn().mockResolvedValue('/tmp/casa-seeds-test.txt');
       deps.deleteSeedFile = vi.fn().mockResolvedValue(undefined);
       // Track which scriptName each runZap call used (proxy for flavor)
@@ -273,24 +274,25 @@ envs:
         { configPath: ymlPath, env: 'staging', confirmProd: false, flavor: 'casa' },
         deps
       );
-      expect(deps.runZap.scripts).toEqual(['zap-full-scan.py', 'zap-api-scan.py']);
+      // supabase-jwt target → casa flavor → zap-full-scan.py; oauth-callback
+      // target → zap-full-scan.py (active scan via hook + descriptor).
+      expect(deps.runZap.scripts).toEqual(['zap-full-scan.py', 'zap-full-scan.py']);
       // Lifecycle invariants: each writer/deleter is called exactly when
       // the per-target flavor needs it. The oauth-callback target writes
-      // the synthetic OpenAPI file and doesn't write a seed file; the
-      // supabase-jwt target (no seedDir/seedUrls in the fixture) writes
-      // neither.
-      expect(deps.writeOpenApiFile).toHaveBeenCalledTimes(1);
-      expect(deps.deleteOpenApiFile).toHaveBeenCalledTimes(1);
+      // the JSON descriptor and doesn't write a seed file; the supabase-jwt
+      // target (no seedDir/seedUrls in the fixture) writes neither.
+      // The oauth-callback target writes exactly one descriptor and cleans it up.
+      expect(deps.writeCallbackDescriptor).toHaveBeenCalledTimes(1);
+      expect(deps.deleteCallbackDescriptor).toHaveBeenCalledTimes(1);
       expect(deps.writeSeedFile).not.toHaveBeenCalled();
       expect(deps.deleteSeedFile).not.toHaveBeenCalled();
-      // The OpenAPI YAML body passed to writeOpenApiFile must contain the
-      // configured callbackParams as `example` values — proves the
-      // synthesizer ran with the right inputs before the writer was called.
-      // Note: YAML 1.1 treats bare `y` as boolean true, so the serializer
-      // quotes it as 'y' to disambiguate. We accept either form.
-      const yamlBody = deps.writeOpenApiFile.mock.calls[0][0];
-      expect(yamlBody).toContain('example: x');
-      expect(yamlBody).toMatch(/example: '?y'?/);
+
+      // The descriptor passed to writeCallbackDescriptor carries the configured
+      // callbackParams and defaults methods to ['GET'].
+      const descriptor = deps.writeCallbackDescriptor.mock.calls[0][0];
+      expect(descriptor.url).toContain('/auth/google/callback');
+      expect(descriptor.methods).toEqual(['GET']);
+      expect(descriptor.params).toEqual({ state: 'x', code: 'y' });
     } finally {
       await import('node:fs/promises').then((fs) =>
         fs.rm(tmpDir, { recursive: true, force: true })
