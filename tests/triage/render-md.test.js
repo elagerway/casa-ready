@@ -219,4 +219,34 @@ describe('renderMarkdown', () => {
     expect(md).toContain('failed to scan');
     expect(md).toContain('casa-ready scan');
   });
+
+  // Pins the per-category rationale lines so the CATEGORY_RATIONALE data map
+  // stays output-equivalent to the original if/else chain.
+  it('emits the exact rationale block for each category', () => {
+    const md = renderMarkdown({
+      runId: 'scan-output/prod/2026-05-01',
+      generatedAt: '2026-05-01T22:36:00Z',
+      targetsIncluded: ['api'],
+      failures: [],
+      findings: [
+        { ...sampleClassified.findings[0], category: 'actionable' },
+        { ...sampleClassified.findings[1], category: 'saq-explainable' },
+        { ...sampleClassified.findings[0], alertName: 'N', category: 'noise' },
+        { ...sampleClassified.findings[0], alertName: 'U', category: 'unknown' },
+      ],
+    });
+    expect(md).toContain(
+      '**Why this is actionable:** see linked rule file for the standard fix pattern and CASA context.'
+    );
+    expect(md).toContain(
+      "**Why this isn't a code fix:** see linked rule file for the SAQ answer template."
+    );
+    expect(md).toContain(
+      '**Why this is noise:** see linked rule file for the dismissal reasoning.'
+    );
+    expect(md).toContain(
+      '**Why "Unknown":** No rule file exists for this alert type.\n' +
+        "Suggested next step: read the ZAP HTML report for context (alongside this triage.md), and consider opening a PR adding configs/casa/rules/<slug>.md if it's a recurring CASA-relevant alert."
+    );
+  });
 });

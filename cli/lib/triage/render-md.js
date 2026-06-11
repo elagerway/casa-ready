@@ -12,6 +12,20 @@ const CATEGORY_ACTION = {
   noise: 'Dismiss',
   unknown: 'Manual review',
 };
+// One markdown line per array entry; unknown deliberately spans two.
+const CATEGORY_RATIONALE = {
+  actionable: [
+    '**Why this is actionable:** see linked rule file for the standard fix pattern and CASA context.',
+  ],
+  'saq-explainable': [
+    "**Why this isn't a code fix:** see linked rule file for the SAQ answer template.",
+  ],
+  noise: ['**Why this is noise:** see linked rule file for the dismissal reasoning.'],
+  unknown: [
+    '**Why "Unknown":** No rule file exists for this alert type.',
+    `Suggested next step: read the ZAP HTML report for context (alongside this triage.md), and consider opening a PR adding configs/casa/rules/<slug>.md if it's a recurring CASA-relevant alert.`,
+  ],
+};
 
 /**
  * Render aggregated classified findings into the triage.md contract.
@@ -94,16 +108,7 @@ export function renderMarkdown({ runId, generatedAt, targetsIncluded, failures, 
       }
       if (evidence.length > 3) lines.push(`- ... and ${evidence.length - 3} more (see results.html for full list)`);
       lines.push('');
-      if (cat === 'actionable') {
-        lines.push('**Why this is actionable:** see linked rule file for the standard fix pattern and CASA context.');
-      } else if (cat === 'saq-explainable') {
-        lines.push('**Why this isn\'t a code fix:** see linked rule file for the SAQ answer template.');
-      } else if (cat === 'noise') {
-        lines.push('**Why this is noise:** see linked rule file for the dismissal reasoning.');
-      } else if (cat === 'unknown') {
-        lines.push('**Why "Unknown":** No rule file exists for this alert type.');
-        lines.push(`Suggested next step: read the ZAP HTML report for context (alongside this triage.md), and consider opening a PR adding configs/casa/rules/<slug>.md if it's a recurring CASA-relevant alert.`);
-      }
+      lines.push(...CATEGORY_RATIONALE[cat]);
       lines.push('');
     }
   }
