@@ -26,11 +26,13 @@ describe.skipIf(!RUN)('oauth-callback flavor (integration)', () => {
     else process.env.CASA_READY_PASS = originalPass;
   });
 
-  it('produces ZAP artifacts for an oauth-callback target', async () => {
-    // Build a single-target oauth-callback config pointing at juice-shop's
-    // login endpoint. juice-shop accepts random query params and returns
-    // useful errors, which exercises the full zap-api-scan flow without
-    // needing a real OAuth provider.
+  it('produces ZAP artifacts for a GET+POST oauth-callback target', async () => {
+    // Single oauth-callback target pointing at juice-shop's login endpoint.
+    // juice-shop accepts arbitrary params and returns useful errors, which
+    // exercises the new zap-full-scan.py + oauth-callback-hook.py flow
+    // (GET query string + POST form body) without needing a real OAuth
+    // provider. We assert only that the orchestrator completed and wrote
+    // artifacts — not what ZAP found.
     const tmpDir = path.join(tmpdir(), 'casa-oauth-smoke-' + Date.now());
     await mkdir(tmpDir, { recursive: true });
     const ymlPath = path.join(tmpDir, 'casa-ready.yml');
@@ -44,6 +46,7 @@ envs:
         url: http://host.docker.internal:3000/rest/user/login
         auth: { type: none }
         scan: oauth-callback
+        method: [GET, POST]
         callbackParams:
           email: test@x.com
           password: test
