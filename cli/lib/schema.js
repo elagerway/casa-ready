@@ -47,6 +47,9 @@ const AuthSchema = z.discriminatedUnion('type', [
 
 const ScanFlavorSchema = z.enum(['casa', 'baseline', 'oauth-callback']);
 
+const HttpMethodSchema = z.enum(['GET', 'POST']);
+const MethodFieldSchema = z.union([HttpMethodSchema, z.array(HttpMethodSchema).min(1)]);
+
 const CallbackParamsSchema = z.record(z.string(), z.string());
 
 const TargetSchema = z
@@ -59,6 +62,10 @@ const TargetSchema = z
     seedDir: z.string().min(1).optional(),
     scan: ScanFlavorSchema.optional(),
     callbackParams: CallbackParamsSchema.optional(),
+    // Per-target HTTP method(s) for the oauth-callback flavor. Optional;
+    // the oauth-callback descriptor builder defaults this to GET when omitted.
+    // Ignored by other flavors.
+    method: MethodFieldSchema.optional(),
   })
   .strict()
   .superRefine((target, ctx) => {
@@ -121,6 +128,8 @@ export {
   NoAuthSchema,
   AuthSchema,
   ScanFlavorSchema,
+  HttpMethodSchema,
+  MethodFieldSchema,
   CallbackParamsSchema,
   TargetSchema,
   EnvSchema,
