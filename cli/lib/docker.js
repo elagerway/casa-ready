@@ -32,8 +32,7 @@ export function buildZapArgs({
   replacerHeaders = null,
   containerName = null,
   seedFilePath = null,
-  callbackParams = null,
-  openApiPath = null,
+  descriptorPath = null,
 }) {
   return buildArgsFor(flavor, {
     targetUrl,
@@ -43,8 +42,7 @@ export function buildZapArgs({
     replacerHeaders,
     containerName,
     seedFilePath,
-    callbackParams,
-    openApiPath,
+    descriptorPath,
   });
 }
 

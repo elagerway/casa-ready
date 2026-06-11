@@ -151,23 +151,19 @@ describe('buildZapArgs', () => {
     ).toThrow(/unknown scan flavor: fast/i);
   });
 
-  it('forwards openApiPath to the dispatcher (oauth-callback flavor needs it)', () => {
+  it('forwards descriptorPath to the dispatcher (oauth-callback flavor needs it)', () => {
     const args = buildZapArgs({
       flavor: 'oauth-callback',
-      targetUrl: 'https://example.com/cb',
+      targetUrl: 'https://example.com/auth/google/callback',
       configsDir: '/abs/configs/zap',
       outputDir: '/abs/out',
       contextPath: '/tmp/ctx.xml',
-      callbackParams: { state: 'x' },
-      openApiPath: '/tmp/oauth-openapi-abc.yaml',
+      descriptorPath: '/tmp/oauth-callback-abc.json',
     });
-    // The oauth-callback flavor mounts the OpenAPI doc at /zap/openapi.yaml
-    // (root level, NOT inside /zap/wrk — v0.4.2 fix for Docker virtiofs
-    // nested-mount rejection on macOS). If openApiPath isn't forwarded from
-    // buildZapArgs to the dispatcher, the oauth-callback adapter throws
-    // "openApiPath is required". This test pins the contract at the docker.js
-    // layer so a future refactor of the destructure can't silently drop it.
-    expect(args).toContain('/tmp/oauth-openapi-abc.yaml:/zap/openapi.yaml:ro');
+    // If descriptorPath isn't forwarded from buildZapArgs to the dispatcher,
+    // the oauth-callback adapter throws "descriptorPath is required". This
+    // pins the contract at the docker.js boundary.
+    expect(args).toContain('/tmp/oauth-callback-abc.json:/zap/oauth-callback.json:ro');
   });
 });
 
