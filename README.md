@@ -2,7 +2,7 @@
 
 > The Claude Code plugin (and bundled CLI) that helps developers pass Google's CASA Tier 2 security assessment without paying a security consulting firm.
 
-**Status:** v0.5.2 — `triage-findings` skill + `casa-ready triage` CLI shipped. Built in the open, exercised against real applications.
+**Status:** `triage-findings` skill + `casa-ready triage` CLI shipped (see [CHANGELOG](CHANGELOG.md) for the current version). Built in the open, exercised against real applications.
 
 ## How it works
 
